@@ -42,14 +42,14 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 - [x] Steps 1.0–1.2 complete
 
 **Work items**:
-- [ ] CLONE 5 Spring guide repos into dataset/workspaces/
-- [ ] VERIFY each guide's `complete/` subdirectory compiles: `mvn clean compile`
-- [ ] VERIFY existing tests pass: `mvn test`
-- [ ] CONFIGURE workspace materialization (git clone per item)
+- [x] CLONE 5 Spring guide repos into dataset/workspaces/
+- [x] VERIFY each guide's `complete/` subdirectory compiles: `./mvnw clean compile`
+- [x] VERIFY existing tests pass: `./mvnw test`
+- [x] CONFIGURE workspace materialization (git clone per item)
 
 **Exit criteria**:
-- [ ] All 5 dataset items resolve and build
-- [ ] Create: `plans/learnings/step-1.3-dataset.md`
+- [x] All 5 dataset items resolve and build
+- [x] Create: `plans/learnings/step-1.3-dataset.md`
 - [ ] COMMIT
 
 ---
@@ -143,3 +143,4 @@ plans/learnings/
 | Timestamp | Change | Trigger |
 |-----------|--------|---------|
 | 2026-03-01 | Initial — Steps 1.0-1.2 complete via forge bootstrapping session | Genesis session |
+| 2026-03-01 | Step 1.3 complete — dataset populated, verified, materialization configured | Dataset setup session |

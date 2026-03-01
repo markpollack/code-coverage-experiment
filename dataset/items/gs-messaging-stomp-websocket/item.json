@@ -1,0 +1,6 @@
+{
+  "developerTask": "Improve test coverage to 80% line coverage",
+  "noChange": false,
+  "knowledgeRefs": [],
+  "tags": ["messaging", "websocket", "stomp"]
+}

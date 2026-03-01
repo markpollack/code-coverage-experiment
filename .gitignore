@@ -14,3 +14,4 @@ target/
 .DS_Store
 results/runs/
 dataset/workspaces/
+dataset/items/*/before/

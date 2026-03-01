@@ -1,20 +1,22 @@
 # Code Coverage Experiment
 
-Agent experiment: improve JUnit test coverage on Spring Boot Maven projects using AI agents with progressive knowledge injection.
+Agent experiment: improve JUnit test coverage on Spring Boot projects using AI agents with progressive knowledge injection. Default build tool is Maven; Gradle support is planned as an agent option.
 
 ## Build
 
+**Always use `./mvnw` (Maven Wrapper) instead of `mvn`.** If a project lacks `mvnw`, install it first: `mvn wrapper:wrapper`.
+
 ```bash
-mvn compile     # Compile
-mvn test        # Run tests
-mvn package     # Build JAR
+./mvnw compile     # Compile
+./mvnw test        # Run tests
+./mvnw package     # Build JAR
 ```
 
 ## Implementation Progress
 
 **Source of truth**: `plans/ROADMAP.md`
 
-**Current state**: Stage 1 steps 1.0–1.2 complete (project scaffolded by `markpollack/forge`, AgentInvoker implemented, prompts and knowledge written). Stage 1.3 (dataset population) and Stage 2 (variant execution) are next.
+**Current state**: Stage 1 steps 1.0–1.3 complete (project scaffolded, AgentInvoker implemented, prompts/knowledge written, dataset populated and verified). Stage 1.4 (TestQualityJudge) and Stage 2 (variant execution) are next.
 
 ## Architecture
 
@@ -75,17 +77,25 @@ ExperimentApp → ExperimentRunner → CodeCoverageAgentInvoker → CascadedJury
 └── plans/                      # VISION, DESIGN, ROADMAP
 ```
 
-## Dependencies — Source Code Available Locally
+## Dependencies
 
-**Always prefer reading local source code over `javap` to understand how dependency APIs work.** Many dependencies are built from source on this machine:
+**Always prefer reading local source code over `javap` to understand how dependency APIs work.** See memory files for local source paths.
 
-| Dependency | Coordinates | Local Source |
-|-----------|-------------|-------------|
-| experiment-core | ai.tuvium 0.1.0-SNAPSHOT | `~/tuvium/projects/tuvium-experiment-driver/` |
-| agent-judge-core + agent-judge-exec | org.springaicommunity 0.9.0-SNAPSHOT | `~/community/agent-judge/` |
-| spring-ai-agent-client + spring-ai-claude-agent | org.springaicommunity.agents 0.10.0-SNAPSHOT | `~/community/agent-client/` |
-| Spring AI | org.springframework.ai 2.0.0-SNAPSHOT | `~/projects/spring-ai/` |
+| Dependency | Coordinates |
+|-----------|-------------|
+| experiment-core | ai.tuvium 0.1.0-SNAPSHOT |
+| agent-judge-core + agent-judge-exec | org.springaicommunity 0.9.0-SNAPSHOT |
+| spring-ai-agent-client + spring-ai-claude-agent | org.springaicommunity.agents 0.10.0-SNAPSHOT |
+| Spring AI | org.springframework.ai 2.0.0-SNAPSHOT |
+
+## Knowledge Extraction Backlog
+
+Domain knowledge injected into the agent lives in `knowledge/`. It must be self-contained in this repo — no references to external paths at runtime. When adding new knowledge files, extract and adapt content into this project's `knowledge/` directory.
+
+Candidates for future variants (deeper knowledge injection):
+- JPA / data-access testing best practices
+- Other Spring domain-specific testing patterns as identified from experiment results
 
 ## Origin
 
-Scaffolded by `markpollack/forge` from `markpollack/agent-experiment-template` using brief at `~/tuvium/projects/tuvium-research-conversation-agent/plans/coverage-agent-brief.yaml`.
+Scaffolded by `markpollack/forge` from `markpollack/agent-experiment-template`.
