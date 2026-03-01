@@ -75,11 +75,16 @@ ExperimentApp → ExperimentRunner → CodeCoverageAgentInvoker → CascadedJury
 └── plans/                      # VISION, DESIGN, ROADMAP
 ```
 
-## Dependencies
+## Dependencies — Source Code Available Locally
 
-- `experiment-core` (ai.tuvium, 0.1.0-SNAPSHOT) — ExperimentRunner, ComparisonEngine, ResultStore
-- `agent-judge-core` + `agent-judge-exec` (org.springaicommunity, 0.9.0-SNAPSHOT) — Judge, Jury, CascadedJury, deterministic judges
-- `spring-ai-agent-client` + `spring-ai-claude-agent` (org.springaicommunity.agents, 0.10.0-SNAPSHOT) — AgentClient, ClaudeAgentModel
+**Always prefer reading local source code over `javap` to understand how dependency APIs work.** Many dependencies are built from source on this machine:
+
+| Dependency | Coordinates | Local Source |
+|-----------|-------------|-------------|
+| experiment-core | ai.tuvium 0.1.0-SNAPSHOT | `~/tuvium/projects/tuvium-experiment-driver/` |
+| agent-judge-core + agent-judge-exec | org.springaicommunity 0.9.0-SNAPSHOT | `~/community/agent-judge/` |
+| spring-ai-agent-client + spring-ai-claude-agent | org.springaicommunity.agents 0.10.0-SNAPSHOT | `~/community/agent-client/` |
+| Spring AI | org.springframework.ai 2.0.0-SNAPSHOT | `~/projects/spring-ai/` |
 
 ## Origin
 
