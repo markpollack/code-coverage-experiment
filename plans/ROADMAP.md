@@ -95,13 +95,20 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 - [ ] Read: `plans/inbox/design-review.md` — reviewer feedback
 - [ ] Read: `plans/JOURNAL.md` — critical insight on agent-based judge approach
 
-**Design decisions** (from reviews v1 + v2 + v3 + owner input):
+**Design decisions** (from reviews v1–v4 + owner input):
+
+*Judge philosophy — fixed quality bar (v4, supersedes v1–v3 adaptive designs):*
+- **One handcrafted judge prompt, same for all variants.** The judge defines what good Spring Boot tests look like. It does not adapt to the agent's prompt or knowledge. The judge is the target; the variants are different attempts to hit it.
+- **3 criteria** (equal weight, scored 0.0–1.0 each):
+  - **Assertion quality**: real assertions testing specific expected values — not `assertTrue(true)`, not Java `assert` keyword
+  - **Spring slice usage**: correct test annotations (`@WebMvcTest`, `@DataJpaTest`, `@ExtendWith(MockitoExtension.class)`) — not `@SpringBootTest` for everything
+  - **Edge case coverage**: null inputs, empty collections, error paths, boundary conditions — not just happy path
+- **Rewards built-in LLM knowledge**: if the model already knows `@WebMvcTest` without KB injection, it scores. The growth story shows what knowledge adds *on top of* what the model already knows.
+- **Knowledge files derive from judge criteria**: `spring-test-slices.md` teaches slice usage, `coverage-fundamentals.md` teaches assertion quality, etc. Closed loop.
+
+*Implementation (unchanged from v1–v3):*
 - Agent-based judge (not `LLMJudge`): uses `AgentClient`/`ClaudeAgentModel` for filesystem navigation
 - No `agent-judge-llm` dependency needed — reuse existing `spring-ai-agent-client` + `spring-ai-claude-agent`
-- 2 evaluation criteria (dropped naming as subjective):
-  - **Meaningful assertions** (weight 0.5): checking real behavior, not `assertTrue(true)`
-  - **Exception/edge-case coverage** (weight 0.5): nulls, boundaries, error paths tested
-- Agent navigates to production source; prompt says "if no direct counterpart, evaluate against all production classes in src/main/"
 - `NumericalScore.normalized()` (continuous 0-1) for gradient in analysis
 - Pass threshold configurable (constructor param, default 0.5)
 - Use stronger model for judging than experiment agent (configurable via `AgentModel` injection)
@@ -131,7 +138,7 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 - [ ] WIRE UP `JuryFactory` to accept agent factory, register `TestQualityJudge` at Tier 3 with `FINAL_TIER` policy
 - [ ] WRITE unit test `TestQualityJudgeTest`:
   - Mock agent factory → wire full fluent chain (`goal().workingDirectory().run()`)
-  - Verify correct score computation (50/50 weighting)
+  - Verify correct score computation (3 criteria, equal weight)
   - Verify no-test-files → FAIL with score 0.0
   - Verify malformed agent output → ERROR (not uncaught exception)
   - Verify agent exception → ERROR
@@ -352,3 +359,4 @@ Every step's exit criteria must include:
 | 2026-03-01 | Upgraded to Forge methodology format, expanded Step 1.4, added consolidation steps | Plan-to-roadmap conversion |
 | 2026-03-01 | Step 1.4 design finalized after 4 review rounds; confirmed ClaudeAgentOptions API (timeout, allowedTools, workingDirectory priority) | Design review v4 sign-off |
 | 2026-03-01 | Step 1.4a complete — agent-journal created, claude-code-capture promoted, messageListener added to ClaudeAgentModel, e2e IT verified | Exhaust capture prerequisite |
+| 2026-03-02 | Step 1.4 judge design v4 — fixed quality bar replaces adaptive two-phase design; 3 criteria (assertion quality, slice usage, edge cases), same prompt for all variants; updated VISION + DESIGN | Judge design review v4 |

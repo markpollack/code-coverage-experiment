@@ -33,9 +33,45 @@ The agent operates autonomously on the workspace — it reads code, adds/modifie
 | BuildSuccessJudge | 0 | Deterministic | REJECT_ON_ANY_FAIL | Project compiles and tests pass after agent |
 | CoveragePreservationJudge | 1 | Deterministic | REJECT_ON_ANY_FAIL | Coverage didn't regress from baseline |
 | CoverageImprovementJudge | 2 | Deterministic | ACCEPT_ON_ALL_PASS | Normalized coverage improvement score |
-| TestQualityJudge | 3 | LLM-driven | FINAL_TIER | BDD semantics, meaningful assertions, proper naming |
+| TestQualityJudge | 3 | Agent-based | FINAL_TIER | Fixed quality bar — same criteria for all variants |
 
-Tier 0–2 judges are "off the shelf" from `agent-judge-exec`. Tier 3 (`TestQualityJudge`) is the custom domain piece — an LLM evaluates whether the generated tests follow BDD patterns, have meaningful assertions, and use proper Spring test slices.
+Tier 0–2 judges are "off the shelf" from `agent-judge-exec`. Tier 3 (`TestQualityJudge`) is the custom domain piece.
+
+### TestQualityJudge: Fixed Quality Bar
+
+The judge uses a **single handcrafted prompt** applied identically to all variants. It defines what good Spring Boot tests look like — period. It does not adapt to what the agent was told, and it does not derive criteria from the variant's prompt or knowledge files.
+
+**Why fixed, not adaptive:** The judge is the target; the variants are different attempts to hit it. A fixed bar means:
+- The audience understands the evaluation ("same bar for everyone")
+- The LLM's built-in knowledge is rewarded, not penalized
+- The growth story shows what knowledge injection *added on top of* what the model already knew
+
+**Criteria** (scored 0.0–1.0 each):
+
+| Criterion | What it measures | Low score example | High score example |
+|-----------|-----------------|-------------------|--------------------|
+| Assertion quality | Real assertions testing specific values | `assert x != null`, `assertTrue(true)` | `assertThat(response.getBody()).isEqualTo(expected)` |
+| Spring slice usage | Correct test annotations for context | `@SpringBootTest` for everything | `@WebMvcTest` for controllers, `@DataJpaTest` for repos |
+| Edge case coverage | Non-happy-path testing | Only tests the default success case | Null inputs, empty collections, error paths tested |
+
+The criteria are **universal best practices** — not specific to any variant. The knowledge files *teach* these practices to the agent. The judge *measures* whether the agent applied them. This creates the ablation signal: how much closer to the fixed bar did each additional resource get?
+
+**Implementation:** Agent-based (uses `ClaudeAgentModel` with read-only tools: `Read`, `Glob`, `Grep`) to navigate `src/main/` and `src/test/`. Returns JSON with per-criterion scores and evidence strings. Final score is weighted average → `NumericalScore.normalized()`.
+
+### Knowledge Files Derive From Judge Criteria
+
+The knowledge files and judge criteria form a closed loop:
+
+```
+Judge criteria (fixed target)
+    ↑ measures against
+    |
+Knowledge files (teach agent to hit the target)
+    ↓ injected into
+Agent prompt (variant-specific)
+```
+
+`spring-test-slices.md` teaches `@WebMvcTest` usage → the judge scores slice usage. `coverage-fundamentals.md` teaches assertion quality → the judge scores assertion quality. The knowledge files should not teach things the judge doesn't measure, and the judge shouldn't measure things the knowledge files don't address (at least for higher variants).
 
 ## Variants
 
