@@ -14,14 +14,11 @@ variants:
     promptFile: v2-with-kb.txt
     knowledgeDir: knowledge
     knowledgeFiles:
-      - coverage-fundamentals.md
-      - jacoco-patterns.md
-      - spring-test-slices.md
+      - coverage-mechanics/coverage-fundamentals.md
+      - coverage-mechanics/jacoco-patterns.md
+      - coverage-mechanics/spring-test-slices.md
   - name: variant-c
     promptFile: v2-with-kb.txt
     knowledgeDir: knowledge
     knowledgeFiles:
-      - coverage-fundamentals.md
-      - jacoco-patterns.md
-      - spring-test-slices.md
-      - common-gaps.md
+      - index.md
