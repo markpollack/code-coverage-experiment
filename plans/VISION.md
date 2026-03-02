@@ -2,9 +2,11 @@
 
 ## Thesis
 
-**Knowledge + orchestration > model.** To get specific, reliable behavior from an AI agent, you need domain knowledge and proper orchestration — not just a bigger model. A capable LLM has general training but not a refined knowledge base tuned for a specific task. The industry default ("use the frontier model and prompt it well") is the least tunable lever. Knowledge and orchestration are fast iteration cycles that compound.
+**Hypothesis: knowledge + orchestration > model.** To get specific, reliable behavior from an AI agent, you need domain knowledge and proper orchestration — not just a bigger model. A capable LLM has general training but not a refined knowledge base tuned for a specific task. The industry default ("use the frontier model and prompt it well") is the least tunable lever. Knowledge and orchestration are fast iteration cycles that compound.
 
-The end goal: a knowledge-driven agent architecture where even mid-tier models can produce high-quality, standards-compliant test suites — because the knowledge base, not the model's training data, governs behavior.
+This experiment demonstrates the methodology and calibrates the tooling. It proves "knowledge injection causes agents to follow prescribed practices." The stronger claim — that knowledge + cheap model beats expensive model — requires a cross-model comparison and harder targets, planned as follow-on iterations. Paper-grade evidence for "knowledge > model" comes from the separate SWE-bench experiment, where resolve rate against gold patches provides external ground truth with zero circularity.
+
+The end goal: a knowledge-driven agent architecture where even mid-tier models can produce standards-compliant test suites — because the knowledge base, not the model's training data, governs behavior.
 
 ## Problem Statement
 
@@ -23,7 +25,12 @@ control (naive prompt, no KB)
 
 This ablation design means every score delta has an explanation: was it the prompt, the knowledge, or the depth of knowledge? The growth story is a causal narrative, not just a chart.
 
-**Fixed quality bar, derived from the knowledge base.** The judge prompt is generated from the KB — the KB is the single source of truth for what "good" looks like. The judge applies this bar identically to all variants. It doesn't adapt to what the agent was told; it asks "did the agent get there?" regardless of how. This rewards the LLM's built-in knowledge: if the model already knows `@WebMvcTest` without being told, it scores. The interesting finding is how much knowledge injection adds *on top of* what the model already knows.
+**Two evaluation dimensions, reported separately.** Every variant is scored on two independent dimensions that are never combined into a single number:
+
+- **Functional correctness** (deterministic, T0–T2 judges): Does the code compile? Do the tests pass? Does coverage meet the threshold? Binary, unimpeachable, no subjectivity.
+- **Practice adherence** (LLM-evaluated, T3 judge): Does the agent follow prescribed Spring testing practices? Did it use the narrowest test slice? Are assertions checking domain-meaningful values? Are Boot 4 idioms used on a Boot 4 project? This is a fixed rubric authored from the KB and applied identically to all variants.
+
+The framing: all variants should produce compiling, passing tests. The knowledge-informed variants should *additionally* follow the prescribed practices. The practice adherence rubric is intentionally derived from the KB — measuring adherence to a standard using that standard as the rubric is how all compliance testing works. The product story is "fork the KB, add your team's idioms, the agent follows them."
 
 **JIT context, not prompt stuffing.** The agent doesn't get the entire KB shoved into its prompt. It navigates a structured knowledge base at runtime using file tools (Read, Glob, Grep) — reading a 3KB routing index, then selectively loading only the cheatsheets relevant to the code it's testing. This is the same JIT context pattern proven in the refactoring-agent, where Haiku + knowledge stores beat Sonnet without them. It scales: the agent pays token cost only for what it actually needs.
 
@@ -54,9 +61,14 @@ Domain knowledge files injected into the agent's context will produce larger cov
 - [ ] Growth story demonstrates progressive improvement across all 4 variants with attributed causes
 - [ ] Results reproducible across 5 Spring Getting Started guides
 
-## Planned Follow-On: Cross-Model Validation
+## Planned Iterations
 
-To fully validate "knowledge + orchestration > model", a follow-on experiment holds the KB constant and varies the model — run the best variant's prompt+KB against a smaller model (Haiku, Qwen, etc.) and compare with variant-a on the frontier model. Even one such comparison would generate evidence for whether knowledge injection compensates for model capability. This is out of scope for the current run but should be designed in from the start.
+This experiment is the first in a progression:
+
+1. **Now**: 5 Getting Started guides — calibrate judge, KB pipeline, exhaust capture, growth story
+2. **Next**: Pet Clinic + harder repos — genuine complexity where the KB advantage matters and ceiling effects are unlikely
+3. **Next**: Cross-model variant (Haiku+KB vs Sonnet/Opus with no KB) — the headline comparison that transforms "knowledge helps" into "knowledge + cheap model beats expensive model"
+4. **Later**: SWE-bench Lite (N=150) — paper-grade evidence with external ground truth (resolve rate against gold patches), zero circularity
 
 ## Scope
 

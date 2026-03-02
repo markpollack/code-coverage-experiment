@@ -33,11 +33,13 @@ The agent operates autonomously on the workspace — it reads code, adds/modifie
 | BuildSuccessJudge | 0 | Deterministic | REJECT_ON_ANY_FAIL | Project compiles and tests pass after agent |
 | CoveragePreservationJudge | 1 | Deterministic | REJECT_ON_ANY_FAIL | Coverage didn't regress from baseline |
 | CoverageImprovementJudge | 2 | Deterministic | ACCEPT_ON_ALL_PASS | Normalized coverage improvement score |
-| TestQualityJudge | 3 | Agent-based | FINAL_TIER | Fixed quality bar derived from KB — same for all variants |
+| TestQualityJudge | 3 | Agent-based | FINAL_TIER | Practice adherence — fixed rubric derived from KB, same for all variants |
 
-Tier 0–2 judges are "off the shelf" from `agent-judge-exec`. Tier 3 (`TestQualityJudge`) is the custom domain piece.
+Tier 0–2 judges are "off the shelf" from `agent-judge-exec`. They produce **functional correctness** scores — deterministic, no subjectivity. Tier 3 (`TestQualityJudge`) produces **practice adherence** scores — LLM-evaluated against a fixed rubric.
 
-### TestQualityJudge: Fixed Quality Bar from KB
+These two dimensions are **reported separately, never combined into a single number.** The functional score shows the KB doesn't break anything. The adherence score shows whether the KB makes the agent follow prescribed practices.
+
+### TestQualityJudge: Practice Adherence
 
 The judge uses a **single fixed prompt** (`prompts/judge-quality.txt`), applied identically to all variants. The prompt was authored by reading the KB and distilling best practices into concrete evaluation criteria. It is a static artifact — the judge does NOT read the KB at runtime.
 
@@ -45,21 +47,25 @@ The judge uses a **single fixed prompt** (`prompts/judge-quality.txt`), applied 
 Knowledge base (source of truth)
     ↓ author reads, distills (once)    ↓ subset per variant
 Judge prompt                          Agent KB files (knowledge/)
-(static file, fixed bar)             (progressively more per variant)
+(static file, fixed rubric)          (progressively more per variant)
     ↓ same for all variants               ↓
-Scores ←─────────────────────────── Agent output
+Adherence scores ←─────────────── Agent output
+                                         ↓
+Functional scores ←── T0/T1/T2 deterministic judges
 ```
 
-The judge prompt encodes the full KB's perspective as a fixed quality bar. The agent gets a progressively larger slice of the KB at runtime. The delta between variants measures how much of the quality bar the agent could reach with the resources it was given.
+The judge prompt encodes the full KB's perspective as a fixed practice adherence rubric. The agent gets a progressively larger slice of the KB at runtime. The delta between variants measures how much closer to the prescribed practices the agent gets with each additional resource.
 
-**Why fixed, not adaptive per-variant:** The judge is the target; the variants are different attempts to hit it. A fixed bar means:
+**Why "practice adherence" not "quality":** The criteria are intentionally derived from the KB. Measuring adherence to a standard using that standard as the rubric is how all compliance testing works. The honest framing: "the knowledge-informed variants additionally follow prescribed Spring testing practices." This avoids over-claiming objectivity.
+
+**Why fixed, not adaptive per-variant:** The judge is the target; the variants are different attempts to hit it. A fixed rubric means:
 - The audience understands the evaluation ("same bar for everyone")
 - The LLM's built-in knowledge is rewarded, not penalized
 - The growth story shows what knowledge injection *added on top of* what the model already knew
 
 **Why a static prompt, not runtime KB navigation:** A judge that reads the KB at runtime is non-deterministic — different reads could yield different criteria and scores across runs. The judge prompt is a versioned artifact. If the KB evolves between experiment cycles, the judge prompt is updated as a deliberate step, not automatically. The `TestQualityJudge` implementation is generic — it takes the prompt file path as input.
 
-**Implementation:** Agent-based (uses `ClaudeAgentModel` with read-only tools: `Read`, `Glob`, `Grep`) to navigate `src/main/` and `src/test/`. Returns JSON with per-criterion scores and evidence strings. Final score is weighted average → `NumericalScore.normalized()`.
+**Implementation:** Agent-based (uses `ClaudeAgentModel` with read-only tools: `Read`, `Glob`, `Grep`) to navigate `src/main/` and `src/test/`. Returns JSON with per-criterion adherence scores and evidence strings. Scores are per-criterion, not a single composite.
 
 ### Knowledge Base as Configurable Policy
 

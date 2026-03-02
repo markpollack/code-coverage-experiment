@@ -6,7 +6,7 @@
 
 ## Overview
 
-Grow a code coverage improvement agent through 4 variants across 5 Spring Getting Started guides. Demonstrate that knowledge injection > prompt engineering > model choice. Stage 1 builds all infrastructure (invoker, judges, dataset). Stage 2 runs variants and collects data. Stage 3 analyzes results.
+Grow a code coverage improvement agent through 4 variants across 5 Spring Getting Started guides. Test the hypothesis that knowledge injection > prompt engineering > model choice. Stage 1 builds all infrastructure (invoker, judges, dataset). Stage 2 runs variants and collects data. Stage 3 analyzes results. This experiment calibrates the methodology; harder targets and cross-model comparison are planned iterations.
 
 > **Before every commit**: Verify ALL exit criteria for the current step are met. Do NOT remove exit criteria to mark a step complete — fulfill them.
 
@@ -107,7 +107,8 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 *Implementation (unchanged from v1–v3):*
 - Agent-based judge (not `LLMJudge`): uses `AgentClient`/`ClaudeAgentModel` for filesystem navigation
 - No `agent-judge-llm` dependency needed — reuse existing `spring-ai-agent-client` + `spring-ai-claude-agent`
-- `NumericalScore.normalized()` (continuous 0-1) for gradient in analysis
+- Two dimensions reported separately, never combined: functional (T0–T2, deterministic) + practice adherence (T3, LLM)
+- Adherence scores per-criterion (continuous 0-1) for gradient in analysis
 - Pass threshold configurable (constructor param, default 0.5)
 - Use stronger model for judging than experiment agent (configurable via `AgentModel` injection)
 - Timeout: use `ClaudeAgentOptions.timeout(Duration.ofMinutes(3))` — confirmed native support, default 10 min (no CompletableFuture)
@@ -136,8 +137,8 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
   - Load judge prompt, invoke agent with JSON-only output constraint
   - Invoke agent synchronously (try/catch), use agent-level timeout if available
   - Parse outermost `{...}` from agent output, clamp scores to [0.0, 1.0]
-  - Compute weighted average → `NumericalScore.normalized()`
-  - Return `Judgment` with `Check` entries per criterion, raw scores in metadata
+  - Return `Judgment` with `Check` entries per criterion (practice adherence scores reported per-criterion, not combined)
+  - Functional correctness is handled by T0–T2 judges — TestQualityJudge only produces adherence scores
   - Error handling: agent failure or unparseable output → `Judgment.error()`
   - Clean up temp workspace copy
   - Judge code is generic — criteria are in the prompt file, not in Java
@@ -283,6 +284,11 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 **Deliverables**: Analysis documentation, pattern identification
 
+**Planned future iterations** (out of scope for this run, design in from the start):
+- Pet Clinic + harder repos — genuine complexity where KB advantage matters
+- Cross-model variant (Haiku+KB vs Sonnet/Opus with no KB) — transforms "knowledge helps" into "knowledge + cheap model beats expensive model"
+- SWE-bench Lite (N=150) — paper-grade evidence with external ground truth (resolve rate), zero circularity
+
 ---
 
 ### Step 3.1: Graduate Best Variant
@@ -367,3 +373,4 @@ Every step's exit criteria must include:
 | 2026-03-01 | Step 1.4a complete — agent-journal created, claude-code-capture promoted, messageListener added to ClaudeAgentModel, e2e IT verified | Exhaust capture prerequisite |
 | 2026-03-02 | Step 1.4 judge design v4 — fixed quality bar replaces adaptive two-phase design; 3 criteria (assertion quality, slice usage, edge cases), same prompt for all variants; updated VISION + DESIGN | Judge design review v4 |
 | 2026-03-02 | Judge design v5 — criteria derived from KB (not hardcoded); KB as forkable policy layer; diagnostic feedback loop; thesis sharpened to "knowledge + orchestration > model"; cross-model follow-on planned | Online review session + AIAnalyzer pattern |
+| 2026-03-02 | Pre-flight review: split scoring (functional + adherence, never combined); "practice adherence" framing; thesis as hypothesis under investigation; planned iterations (Pet Clinic, cross-model, SWE-bench) | Pre-flight validity review |
