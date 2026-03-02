@@ -97,14 +97,12 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 **Design decisions** (from reviews v1–v4 + owner input):
 
-*Judge philosophy — fixed quality bar (v4, supersedes v1–v3 adaptive designs):*
-- **One handcrafted judge prompt, same for all variants.** The judge defines what good Spring Boot tests look like. It does not adapt to the agent's prompt or knowledge. The judge is the target; the variants are different attempts to hit it.
-- **3 criteria** (equal weight, scored 0.0–1.0 each):
-  - **Assertion quality**: real assertions testing specific expected values — not `assertTrue(true)`, not Java `assert` keyword
-  - **Spring slice usage**: correct test annotations (`@WebMvcTest`, `@DataJpaTest`, `@ExtendWith(MockitoExtension.class)`) — not `@SpringBootTest` for everything
-  - **Edge case coverage**: null inputs, empty collections, error paths, boundary conditions — not just happy path
+*Judge philosophy — fixed quality bar derived from KB (v5, supersedes v1–v4):*
+- **Judge prompt derived from the knowledge base, applied identically to all variants.** The KB is the single source of truth for what "good" looks like. The judge prompt is a projection of the full KB into evaluation criteria. The `TestQualityJudge` code is generic — it takes the prompt as input, not hardcoded criteria.
+- **Criteria come from the KB, not from code.** As the KB evolves (add JPA best practices, Boot 4 idioms, etc.), the judge criteria evolve automatically. No code change needed.
 - **Rewards built-in LLM knowledge**: if the model already knows `@WebMvcTest` without KB injection, it scores. The growth story shows what knowledge adds *on top of* what the model already knows.
-- **Knowledge files derive from judge criteria**: `spring-test-slices.md` teaches slice usage, `coverage-fundamentals.md` teaches assertion quality, etc. Closed loop.
+- **KB is a forkable policy layer**: the experiment validates the mechanism (does KB injection produce measurable adherence?), not the opinions. Any team can fork the KB and get a matching judge.
+- **Diagnostic feedback**: judge evidence strings map to improvement levers (knowledge gap, orchestration gap, tool gap, model gap) per the refactoring-agent `AIAnalyzer` pattern.
 
 *Implementation (unchanged from v1–v3):*
 - Agent-based judge (not `LLMJudge`): uses `AgentClient`/`ClaudeAgentModel` for filesystem navigation
@@ -360,3 +358,4 @@ Every step's exit criteria must include:
 | 2026-03-01 | Step 1.4 design finalized after 4 review rounds; confirmed ClaudeAgentOptions API (timeout, allowedTools, workingDirectory priority) | Design review v4 sign-off |
 | 2026-03-01 | Step 1.4a complete — agent-journal created, claude-code-capture promoted, messageListener added to ClaudeAgentModel, e2e IT verified | Exhaust capture prerequisite |
 | 2026-03-02 | Step 1.4 judge design v4 — fixed quality bar replaces adaptive two-phase design; 3 criteria (assertion quality, slice usage, edge cases), same prompt for all variants; updated VISION + DESIGN | Judge design review v4 |
+| 2026-03-02 | Judge design v5 — criteria derived from KB (not hardcoded); KB as forkable policy layer; diagnostic feedback loop; thesis sharpened to "knowledge + orchestration > model"; cross-model follow-on planned | Online review session + AIAnalyzer pattern |

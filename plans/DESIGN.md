@@ -17,8 +17,8 @@ ExperimentApp → ExperimentRunner → CodeCoverageAgentInvoker → CascadedJury
 **AgentInvoker implementation:** `CodeCoverageAgentInvoker`
 
 Workflow per dataset item:
-1. Verify project compiles (`mvn clean compile`)
-2. Measure baseline coverage (`mvn clean test jacoco:report` → `JaCoCoReportParser`)
+1. Verify project compiles (`./mvnw clean compile`)
+2. Measure baseline coverage (`./mvnw clean test jacoco:report` → `JaCoCoReportParser`)
 3. Build prompt from variant's prompt file + baseline metrics
 4. Invoke agent via `AgentClient.goal(prompt).workingDirectory(workspace).run()`
 5. Measure final coverage
@@ -33,45 +33,63 @@ The agent operates autonomously on the workspace — it reads code, adds/modifie
 | BuildSuccessJudge | 0 | Deterministic | REJECT_ON_ANY_FAIL | Project compiles and tests pass after agent |
 | CoveragePreservationJudge | 1 | Deterministic | REJECT_ON_ANY_FAIL | Coverage didn't regress from baseline |
 | CoverageImprovementJudge | 2 | Deterministic | ACCEPT_ON_ALL_PASS | Normalized coverage improvement score |
-| TestQualityJudge | 3 | Agent-based | FINAL_TIER | Fixed quality bar — same criteria for all variants |
+| TestQualityJudge | 3 | Agent-based | FINAL_TIER | Fixed quality bar derived from KB — same for all variants |
 
 Tier 0–2 judges are "off the shelf" from `agent-judge-exec`. Tier 3 (`TestQualityJudge`) is the custom domain piece.
 
-### TestQualityJudge: Fixed Quality Bar
+### TestQualityJudge: Fixed Quality Bar from KB
 
-The judge uses a **single handcrafted prompt** applied identically to all variants. It defines what good Spring Boot tests look like — period. It does not adapt to what the agent was told, and it does not derive criteria from the variant's prompt or knowledge files.
+The judge uses a **single prompt derived from the knowledge base**, applied identically to all variants. The KB is the single source of truth for what "good" looks like — the judge prompt is a projection of that KB into evaluation criteria.
 
-**Why fixed, not adaptive:** The judge is the target; the variants are different attempts to hit it. A fixed bar means:
+```
+Knowledge base (source of truth)
+    ↓ generates (once)           ↓ subset per variant
+Judge prompt                   Agent KB files (knowledge/)
+(full KB, fixed bar)           (progressively more per variant)
+    ↓ applied to all variants      ↓
+Scores ←──────────────────── Agent output
+```
+
+The judge gets the full KB's perspective. The agent gets a progressively larger slice. The delta between variants measures how much of the KB the agent could apply with the resources it was given.
+
+**Why fixed, not adaptive per-variant:** The judge is the target; the variants are different attempts to hit it. A fixed bar means:
 - The audience understands the evaluation ("same bar for everyone")
 - The LLM's built-in knowledge is rewarded, not penalized
 - The growth story shows what knowledge injection *added on top of* what the model already knew
 
-**Criteria** (scored 0.0–1.0 each):
-
-| Criterion | What it measures | Low score example | High score example |
-|-----------|-----------------|-------------------|--------------------|
-| Assertion quality | Real assertions testing specific values | `assert x != null`, `assertTrue(true)` | `assertThat(response.getBody()).isEqualTo(expected)` |
-| Spring slice usage | Correct test annotations for context | `@SpringBootTest` for everything | `@WebMvcTest` for controllers, `@DataJpaTest` for repos |
-| Edge case coverage | Non-happy-path testing | Only tests the default success case | Null inputs, empty collections, error paths tested |
-
-The criteria are **universal best practices** — not specific to any variant. The knowledge files *teach* these practices to the agent. The judge *measures* whether the agent applied them. This creates the ablation signal: how much closer to the fixed bar did each additional resource get?
+**Why derived from KB, not hardcoded:** The judge criteria evolve as the KB evolves. Add JPA testing best practices to the KB → the judge starts scoring for that. No code change needed. The `TestQualityJudge` implementation is generic — it takes a prompt as input. The prompt is the artifact that carries domain knowledge.
 
 **Implementation:** Agent-based (uses `ClaudeAgentModel` with read-only tools: `Read`, `Glob`, `Grep`) to navigate `src/main/` and `src/test/`. Returns JSON with per-criterion scores and evidence strings. Final score is weighted average → `NumericalScore.normalized()`.
 
-### Knowledge Files Derive From Judge Criteria
+### Knowledge Base as Configurable Policy
 
-The knowledge files and judge criteria form a closed loop:
+The KB is not a fixed answer key — it's a **swappable opinion layer**. The experiment validates the *mechanism* (does KB injection produce measurable adherence?), not the *opinions* (are these the right idioms?).
+
+The KB should be structured for forkability:
+
+| Layer | Content | Fork frequency |
+|-------|---------|---------------|
+| **Principles** | Universal: test at the right layer, assert specific values, cover error paths | Rarely — shared across teams |
+| **Idioms** | Team-specific: AssertJ over Hamcrest, `@WebMvcTest` over `@SpringBootTest`, Mockito BDD style | Primary fork target |
+| **Config patterns** | Project-specific: JaCoCo exclusions, Maven plugin config, Boot version–specific APIs | Per-project |
+
+A team forking the KB would touch idioms heavily and leave principles mostly alone. This separation also structures the judge prompt — score principles universally, score idioms against whatever the current KB says.
+
+### Diagnostic Feedback Loop
+
+Judge scores are not just pass/fail — they're diagnostic. The evidence strings in the JSON output tell you *why* a criterion scored low, and that maps to a specific improvement lever. This follows the pattern from the refactoring-agent `AIAnalyzer` batch analysis:
 
 ```
-Judge criteria (fixed target)
-    ↑ measures against
-    |
-Knowledge files (teach agent to hit the target)
-    ↓ injected into
-Agent prompt (variant-specific)
+Judge score + evidence
+    ↓ diagnose
+    ├── Knowledge gap?      → score low on criterion KB addresses    → refine KB file
+    ├── Orchestration gap?  → high tool usage, retries, wrong order  → restructure prompt
+    ├── Tool gap?           → agent reconstructs computable info     → build dedicated tool
+    ├── Model gap?          → consistent failure despite good KB     → try stronger model
+    └── iterate
 ```
 
-`spring-test-slices.md` teaches `@WebMvcTest` usage → the judge scores slice usage. `coverage-fundamentals.md` teaches assertion quality → the judge scores assertion quality. The knowledge files should not teach things the judge doesn't measure, and the judge shouldn't measure things the knowledge files don't address (at least for higher variants).
+The levers are ordered by iteration cost: KB refinement is cheap and fast, model upgrade is expensive and slow. The experiment loop gives you data to know which lever to pull first.
 
 ### Future: Modernization Advisor (not a judge)
 
@@ -90,15 +108,17 @@ A separate concern from quality judging: detecting where existing test patterns 
 
 5 Spring Getting Started guides — small, well-structured projects that represent common Spring Boot patterns:
 
-| Item | URL | Pattern |
-|------|-----|---------|
-| gs-rest-service | spring-guides/gs-rest-service | REST controller |
-| gs-accessing-data-jpa | spring-guides/gs-accessing-data-jpa | JPA repository |
-| gs-securing-web | spring-guides/gs-securing-web | Spring Security |
-| gs-reactive-rest-service | spring-guides/gs-reactive-rest-service | WebFlux reactive |
-| gs-messaging-stomp-websocket | spring-guides/gs-messaging-stomp-websocket | WebSocket messaging |
+| Item | Boot Version | URL | Pattern | Existing Tests |
+|------|-------------|-----|---------|---------------|
+| gs-rest-service | 4.0.3 | spring-guides/gs-rest-service | REST controller | Yes — `RestTestClient` |
+| gs-accessing-data-jpa | 4.0.3 | spring-guides/gs-accessing-data-jpa | JPA repository | Yes — `@DataJpaTest` |
+| gs-securing-web | 4.0.3 | spring-guides/gs-securing-web | Spring Security | Yes — `MockMvc` + Security DSL |
+| gs-reactive-rest-service | 4.0.2 | spring-guides/gs-reactive-rest-service | WebFlux reactive | Yes — `WebTestClient` |
+| gs-messaging-stomp-websocket | 3.5.11 | spring-guides/gs-messaging-stomp-websocket | WebSocket messaging | Yes — STOMP integration |
 
-Each guide's `complete/` subdirectory is used as the workspace.
+Each guide's `complete/` subdirectory is used as the workspace. All guides already have tests — the agent's job is to add coverage following existing conventions, not introduce new patterns.
+
+**Version awareness:** 4 of 5 guides use Boot 4.x (Spring Framework 7), one uses Boot 3.x. The agent prompt instructs version detection from `pom.xml`. The KB contains version-specific guidance (e.g., `RestTestClient` on Boot 4+, `MockMvc` on Boot 3.x). This creates a natural test of version-aware behavior.
 
 ## Knowledge Files
 
@@ -108,3 +128,5 @@ Each guide's `complete/` subdirectory is used as the workspace.
 | jacoco-patterns.md | JaCoCo Maven plugin config, report structure, common issues | variant-b, variant-c |
 | spring-test-slices.md | @WebMvcTest vs @DataJpaTest vs plain JUnit decision tree | variant-b, variant-c |
 | common-gaps.md | Negative guidance: don't test records/main/config, DO test error handling | variant-c only |
+
+Knowledge files are derived from the same KB that generates the judge prompt. They teach the agent to hit the target the judge already knows about. The experiment measures how much of that target each variant can reach.
