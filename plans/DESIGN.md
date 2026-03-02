@@ -73,6 +73,10 @@ Agent prompt (variant-specific)
 
 `spring-test-slices.md` teaches `@WebMvcTest` usage → the judge scores slice usage. `coverage-fundamentals.md` teaches assertion quality → the judge scores assertion quality. The knowledge files should not teach things the judge doesn't measure, and the judge shouldn't measure things the knowledge files don't address (at least for higher variants).
 
+### Future: Modernization Advisor (not a judge)
+
+A separate concern from quality judging: detecting where existing test patterns could be upgraded to newer Boot idioms (e.g., `MockMvc` → `RestTestClient` on Boot 4+). This is **not a judge** — judges score the agent's output against a quality bar. Modernization advice is a recommendation for the project maintainer, orthogonal to coverage improvement. It could be a standalone report or a separate agent, but it should not influence the coverage agent's behavior during an experiment run. The coverage agent's job is to follow existing conventions and add coverage, not refactor test style.
+
 ## Variants
 
 | Variant | Prompt | Knowledge | Expected Outcome |
