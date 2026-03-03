@@ -16,7 +16,7 @@ Agent experiment: improve JUnit test coverage on Spring Boot projects using AI a
 
 **Source of truth**: `plans/ROADMAP.md`
 
-**Current state**: Stage 1 complete (Steps 1.0–1.4). TestQualityJudge implemented with 11 tests. Step 1.5 (consolidation) then Stage 2 (variant execution) are next.
+**Current state**: Stage 1 complete (Steps 1.0–1.5). Ready for Stage 2 (variant execution).
 
 ## Architecture
 
@@ -93,6 +93,22 @@ ExperimentApp → ExperimentRunner → CodeCoverageAgentInvoker → CascadedJury
 | agent-judge-core + agent-judge-exec | org.springaicommunity 0.9.0-SNAPSHOT |
 | spring-ai-agent-client + spring-ai-claude-agent | org.springaicommunity.agents 0.10.0-SNAPSHOT |
 | Spring AI | org.springframework.ai 2.0.0-SNAPSHOT |
+
+## Stage 1 Learnings (distilled)
+
+For full details: `plans/learnings/LEARNINGS.md`
+
+**API gotchas**:
+- `AgentClient.AgentClientRequestSpec` is a nested interface, not top-level
+- `AgentGeneration` (not `AgentResult`) — model result type with `getOutput()`
+- `NumericalScore.normalized()` throws on out-of-bounds — always clamp LLM scores first
+- `workingDirectory` priority: request-level > goal-level > builder default > cwd
+
+**Design patterns**:
+- `Function<Path, AgentClient>` factory for testability — mock factory, not static methods
+- Package-private parsing methods for unit tests (separate from integration)
+- Fixed judge rubric applied identically to all variants; KB informs authorship, not runtime
+- Two scoring dimensions (functional T0-T2 + adherence T3) reported separately, never combined
 
 ## Knowledge Extraction Backlog
 

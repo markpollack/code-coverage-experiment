@@ -2,7 +2,7 @@
 
 > **Created**: 2026-03-01
 > **Last updated**: 2026-03-01
-> **Status**: Stage 1 in progress (Steps 1.0–1.4 complete, Step 1.5 consolidation next)
+> **Status**: Stage 1 complete (Steps 1.0–1.5). Ready for Stage 2.
 
 ## Overview
 
@@ -162,23 +162,23 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 ### Step 1.5: Stage 1 Consolidation and Review
 
 **Entry criteria**:
-- [ ] All Stage 1 steps complete (1.0–1.4)
-- [ ] Read: all `plans/learnings/step-1.*` files from this stage
+- [x] All Stage 1 steps complete (1.0–1.4)
+- [x] Read: all `plans/learnings/step-1.*` files from this stage
 
 **Work items**:
-- [ ] COMPACT learnings from all Stage 1 steps into `plans/learnings/LEARNINGS.md`
+- [x] COMPACT learnings from all Stage 1 steps into `plans/learnings/LEARNINGS.md`
   - Key discoveries that changed the approach
   - Patterns established during implementation
   - Deviations from design with rationale
   - Common pitfalls to avoid in future stages
-- [ ] UPDATE `CLAUDE.md` with distilled learnings from the full stage
-- [ ] VERIFY project compiles and all tests pass: `./mvnw clean test`
+- [x] UPDATE `CLAUDE.md` with distilled learnings from the full stage
+- [x] VERIFY project compiles and all tests pass: `./mvnw clean test`
 
 **Exit criteria**:
-- [ ] `LEARNINGS.md` updated with compacted summary covering Stage 1
-- [ ] Create: `plans/learnings/step-1.5-stage1-summary.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
+- [x] `LEARNINGS.md` updated with compacted summary covering Stage 1
+- [x] Create: `plans/learnings/step-1.5-stage1-summary.md`
+- [x] Update `CLAUDE.md` with distilled learnings
+- [x] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
 **Deliverables**: Compacted `LEARNINGS.md`, stage summary, clean `CLAUDE.md`
@@ -371,3 +371,4 @@ Every step's exit criteria must include:
 | 2026-03-02 | Pre-flight review: split scoring (functional + adherence, never combined); "practice adherence" framing; thesis as hypothesis under investigation; planned iterations (Pet Clinic, cross-model, SWE-bench) | Pre-flight validity review |
 | 2026-03-02 | Judge rubric authored: 6 criteria distilled from 13 KB files into `prompts/judge-practice-adherence.txt` + traceability doc. Refined with zero-tests escape, N/A domains, evidence format. | Rubric authoring session |
 | 2026-03-02 | Step 1.4 complete: TestQualityJudge implemented (11 tests passing), JuryFactory wiring ready, learnings captured | Implementation session |
+| 2026-03-02 | Step 1.5 complete: Stage 1 consolidated — LEARNINGS.md compacted, CLAUDE.md updated, all tests pass | Consolidation session |
