@@ -2,7 +2,7 @@
 
 > **Created**: 2026-03-01
 > **Last updated**: 2026-03-01
-> **Status**: Stage 1 in progress (Steps 1.0–1.3 complete, Prereq 1.4a complete)
+> **Status**: Stage 1 in progress (Steps 1.0–1.3 complete, Prereq 1.4a complete, judge prompt written)
 
 ## Overview
 
@@ -98,7 +98,7 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 **Design decisions** (from reviews v1–v4 + owner input):
 
 *Judge philosophy — fixed quality bar (v5, supersedes v1–v4):*
-- **One fixed judge prompt (`prompts/judge-quality.txt`), applied identically to all variants.** Authored by reading the full KB and distilling best practices into concrete evaluation criteria. Static artifact — the judge does NOT read the KB at runtime.
+- **One fixed judge prompt (`prompts/judge-practice-adherence.txt`), applied identically to all variants.** Authored by reading the full KB and distilling best practices into concrete evaluation criteria. Static artifact — the judge does NOT read the KB at runtime.
 - **Criteria come from the KB authorship, not from code.** The `TestQualityJudge` code is generic — it takes the prompt file path as input. If the KB evolves between experiment cycles, the judge prompt is updated as a deliberate versioned step.
 - **Rewards built-in LLM knowledge**: if the model already knows `@WebMvcTest` without KB injection, it scores. The growth story shows what knowledge adds *on top of* what the model already knows.
 - **KB is a forkable policy layer**: the experiment validates the mechanism (does KB injection produce measurable adherence?), not the opinions. Any team can fork the KB and get a matching judge.
@@ -123,13 +123,11 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 **Work items**:
 - [x] CHECK `ClaudeAgentOptions` for timeout config and read-only/restricted mode — confirmed: `timeout(Duration)`, `allowedTools(List)`, `disallowedTools(List)`, `yolo(boolean)`
-- [ ] WRITE judge prompt (`prompts/judge-quality.txt`):
-  - Author reads the full KB and distills best practices into fixed evaluation criteria
-  - The prompt is a static artifact — the judge does NOT read the KB at runtime
-  - Include concrete criteria with scoring rubric (what scores 0.2 vs 0.8)
-  - Constrain output to JSON with per-criterion scores + evidence strings
-  - Same prompt for all variants, all runs — the fixed quality bar
-  - If the KB evolves between experiment cycles, update the judge prompt as a deliberate versioned step
+- [x] WRITE judge prompt (`prompts/judge-practice-adherence.txt`):
+  - 6 criteria: test slice selection, assertion quality, error/edge case coverage, domain-specific patterns, coverage target selection, version-aware patterns
+  - Each scored 0.0–1.0 with concrete anchors at 0.2/0.5/0.8/1.0
+  - Companion traceability doc (`prompts/judge-practice-adherence-traceability.md`) maps criteria → source KB files
+  - Refined: zero-tests escape hatch, N/A for absent domains, multi-file evidence format
 - [ ] IMPLEMENT `TestQualityJudge` implementing `Judge` directly:
   - Constructor takes agent factory (functional interface), judge prompt path, pass threshold
   - `judge()`: copy workspace to temp dir for isolation
@@ -374,3 +372,4 @@ Every step's exit criteria must include:
 | 2026-03-02 | Step 1.4 judge design v4 — fixed quality bar replaces adaptive two-phase design; 3 criteria (assertion quality, slice usage, edge cases), same prompt for all variants; updated VISION + DESIGN | Judge design review v4 |
 | 2026-03-02 | Judge design v5 — criteria derived from KB (not hardcoded); KB as forkable policy layer; diagnostic feedback loop; thesis sharpened to "knowledge + orchestration > model"; cross-model follow-on planned | Online review session + AIAnalyzer pattern |
 | 2026-03-02 | Pre-flight review: split scoring (functional + adherence, never combined); "practice adherence" framing; thesis as hypothesis under investigation; planned iterations (Pet Clinic, cross-model, SWE-bench) | Pre-flight validity review |
+| 2026-03-02 | Judge rubric authored: 6 criteria distilled from 13 KB files into `prompts/judge-practice-adherence.txt` + traceability doc. Refined with zero-tests escape, N/A domains, evidence format. | Rubric authoring session |

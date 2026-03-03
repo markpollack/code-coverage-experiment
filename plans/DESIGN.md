@@ -41,7 +41,7 @@ These two dimensions are **reported separately, never combined into a single num
 
 ### TestQualityJudge: Practice Adherence
 
-The judge uses a **single fixed prompt** (`prompts/judge-quality.txt`), applied identically to all variants. The prompt was authored by reading the KB and distilling best practices into concrete evaluation criteria. It is a static artifact — the judge does NOT read the KB at runtime.
+The judge uses a **single fixed prompt** (`prompts/judge-practice-adherence.txt`), applied identically to all variants. The prompt was authored by reading the KB and distilling best practices into 6 concrete evaluation criteria (test slice selection, assertion quality, error/edge case coverage, domain-specific patterns, coverage target selection, version-aware patterns). Each criterion is scored 0.0–1.0 with concrete anchors. It is a static artifact — the judge does NOT read the KB at runtime.
 
 ```
 Knowledge base (source of truth)

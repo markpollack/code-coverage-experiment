@@ -16,7 +16,7 @@ Agent experiment: improve JUnit test coverage on Spring Boot projects using AI a
 
 **Source of truth**: `plans/ROADMAP.md`
 
-**Current state**: Stage 1 steps 1.0–1.3 complete (project scaffolded, AgentInvoker implemented, prompts/knowledge written, dataset populated and verified). Stage 1.4 (TestQualityJudge) and Stage 2 (variant execution) are next.
+**Current state**: Stage 1 steps 1.0–1.3 complete, prereq 1.4a complete, judge rubric written. Remaining: implement TestQualityJudge Java code (Step 1.4), then Stage 2 (variant execution).
 
 ## Architecture
 
@@ -63,16 +63,22 @@ ExperimentApp → ExperimentRunner → CodeCoverageAgentInvoker → CascadedJury
 ```
 ├── dataset/items.yaml          # 5 Spring guide benchmark items
 ├── experiment-config.yaml      # 4 variant definitions
-├── knowledge/                  # Domain knowledge (4 files + index)
-│   ├── index.md
-│   ├── coverage-fundamentals.md
-│   ├── jacoco-patterns.md
-│   ├── spring-test-slices.md
-│   └── common-gaps.md
-├── prompts/                    # Per-variant prompts
+├── knowledge/                  # Domain knowledge (JIT navigation)
+│   ├── index.md                # Top-level router (always read first)
+│   ├── coverage-mechanics/     # Small, universal (read upfront)
+│   │   ├── coverage-fundamentals.md
+│   │   ├── jacoco-patterns.md
+│   │   ├── spring-test-slices.md
+│   │   └── common-gaps.md
+│   └── spring-testing/         # Rich domain KB (navigate via routing tables)
+│       ├── index.md
+│       └── (8 cheatsheets)
+├── prompts/                    # Agent + judge prompts
 │   ├── v0-naive.txt
 │   ├── v1-hardened.txt
-│   └── v2-with-kb.txt
+│   ├── v2-with-kb.txt
+│   ├── judge-practice-adherence.txt           # Fixed rubric — 6 criteria, same for all variants
+│   └── judge-practice-adherence-traceability.md
 ├── results/                    # Experiment results (generated)
 └── plans/                      # VISION, DESIGN, ROADMAP
 ```
