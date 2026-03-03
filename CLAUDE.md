@@ -16,7 +16,7 @@ Agent experiment: improve JUnit test coverage on Spring Boot projects using AI a
 
 **Source of truth**: `plans/ROADMAP.md`
 
-**Current state**: Stage 1 complete (Steps 1.0–1.5). Ready for Stage 2 (variant execution).
+**Current state**: Stage 2 in progress. Step 2.0 (bootstrap wiring) complete. ExperimentApp.main() is runnable with CLI args.
 
 ## Architecture
 
@@ -109,6 +109,13 @@ For full details: `plans/learnings/LEARNINGS.md`
 - Package-private parsing methods for unit tests (separate from integration)
 - Fixed judge rubric applied identically to all variants; KB informs authorship, not runtime
 - Two scoring dimensions (functional T0-T2 + adherence T3) reported separately, never combined
+
+## Stage 2 Learnings (distilled)
+
+**Bootstrap wiring** (Step 2.0):
+- `ExperimentApp.main()` wires: `loadConfig()` → `buildJuryFactory()` → `FileSystemResultStore` → dispatch
+- `AgentInvoker` removed from constructor — per-variant `CodeCoverageAgentInvoker` created via `createInvoker(VariantSpec)` in `runVariant()` (seam for Step 2.1 knowledge injection)
+- `CoverageImprovementJudge` existed in agent-judge source but was missing from installed JAR — re-install from `~/community/agent-judge` was needed. Always verify installed JARs match source.
 
 ## Knowledge Extraction Backlog
 

@@ -191,26 +191,26 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 **Entry criteria**:
 - [x] Stage 1 complete
-- [ ] Read: `plans/learnings/LEARNINGS.md` — Stage 1 compacted learnings
-- [ ] Read: `plans/learnings/step-1.5-stage1-summary.md` — stage summary
+- [x] Read: `plans/learnings/LEARNINGS.md` — Stage 1 compacted learnings
+- [x] Read: `plans/learnings/step-1.5-stage1-summary.md` — stage summary
 
 **Work items**:
-- [ ] IMPLEMENT `loadConfig(Path)` method — parse `experiment-config.yaml` via SnakeYAML into `ExperimentVariantConfig` with `FileSystemDatasetManager`
-- [ ] IMPLEMENT `main()` method — CLI parsing (`--variant <name>` / `--run-all-variants`), component wiring:
+- [x] IMPLEMENT `loadConfig(Path)` method — parse `experiment-config.yaml` via SnakeYAML into `ExperimentVariantConfig` with `FileSystemDatasetManager`
+- [x] IMPLEMENT `main()` method — CLI parsing (`--variant <name>` / `--run-all-variants`), component wiring:
   - `FileSystemResultStore(projectRoot.resolve("results"))`
   - `JuryFactory` with 4 tiers: T0 `BuildSuccessJudge.maven("clean", "test")`, T1 `CoveragePreservationJudge()`, T2 `CoverageImprovementJudge()`, T3 `TestQualityJudge` with `defaultAgentClientFactory("claude-sonnet-4-6", 3min)`
   - `ExperimentApp` construction and dispatch
-- [ ] REFACTOR `ExperimentApp` to create per-variant `CodeCoverageAgentInvoker` in `runVariant()` — remove `AgentInvoker` from constructor (each variant may have different knowledge config)
-- [ ] VERIFY: `./mvnw compile` — all new imports resolve
-- [ ] VERIFY: `./mvnw test` — 11 existing tests still pass
+- [x] REFACTOR `ExperimentApp` to create per-variant `CodeCoverageAgentInvoker` in `runVariant()` — remove `AgentInvoker` from constructor (each variant may have different knowledge config)
+- [x] VERIFY: `./mvnw compile` — all new imports resolve
+- [x] VERIFY: `./mvnw test` — 11 existing tests still pass
 
 **Exit criteria**:
-- [ ] `ExperimentApp.main()` is no longer a stub — can be invoked from CLI
-- [ ] Config loading parses all 4 variants from YAML
-- [ ] All tests pass: `./mvnw test`
-- [ ] Create: `plans/learnings/step-2.0-bootstrap.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
+- [x] `ExperimentApp.main()` is no longer a stub — can be invoked from CLI
+- [x] Config loading parses all 4 variants from YAML
+- [x] All tests pass: `./mvnw test`
+- [x] Create: `plans/learnings/step-2.0-bootstrap.md`
+- [x] Update `CLAUDE.md` with distilled learnings
+- [x] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
 **Deliverables**: Runnable `ExperimentApp` with full component wiring, CLI argument parsing
