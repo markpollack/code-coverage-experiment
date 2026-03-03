@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import ai.tuvium.experiment.dataset.DatasetManager;
 import ai.tuvium.experiment.comparison.ComparisonEngine;
 import ai.tuvium.experiment.comparison.ComparisonResult;
 import ai.tuvium.experiment.comparison.DefaultComparisonEngine;
@@ -86,8 +87,12 @@ public class ExperimentApp {
 			.outputDir(projectRoot.resolve("results"))
 			.build();
 
+		DatasetManager datasetManager = variantConfig.itemSlugFilter() != null
+				? new SlugFilteringDatasetManager(variantConfig.datasetManager(), variantConfig.itemSlugFilter())
+				: variantConfig.datasetManager();
+
 		ExperimentRunner runner = new ExperimentRunner(
-				variantConfig.datasetManager(), jury, resultStore, config);
+				datasetManager, jury, resultStore, config);
 
 		ExperimentResult result = runner.run(invoker);
 
@@ -203,13 +208,19 @@ public class ExperimentApp {
 	}
 
 	/**
-	 * Main entry point. Usage: java -jar experiment.jar [--variant name | --run-all-variants]
+	 * Main entry point. Usage:
+	 * <pre>
+	 *   ./mvnw compile exec:java -Dexec.args="--variant control"
+	 *   ./mvnw compile exec:java -Dexec.args="--variant control --item gs-rest-service"
+	 *   ./mvnw compile exec:java -Dexec.args="--run-all-variants"
+	 * </pre>
 	 */
 	public static void main(String[] args) {
 		Path projectRoot = Path.of(System.getProperty("user.dir"));
 
 		// Parse CLI arguments
 		String targetVariant = null;
+		String targetItem = null;
 		boolean runAll = false;
 
 		for (int i = 0; i < args.length; i++) {
@@ -220,6 +231,13 @@ public class ExperimentApp {
 						System.exit(1);
 					}
 					targetVariant = args[++i];
+				}
+				case "--item" -> {
+					if (i + 1 >= args.length) {
+						logger.error("--item requires an item slug");
+						System.exit(1);
+					}
+					targetItem = args[++i];
 				}
 				case "--run-all-variants" -> runAll = true;
 				case "--project-root" -> {
@@ -237,12 +255,20 @@ public class ExperimentApp {
 		}
 
 		if (targetVariant == null && !runAll) {
-			logger.error("Usage: --variant <name> | --run-all-variants");
+			logger.error("Usage: --variant <name> | --run-all-variants [--item <slug>]");
 			System.exit(1);
 		}
 
 		// Load config
-		ExperimentVariantConfig config = loadConfig(projectRoot.resolve("experiment-config.yaml"));
+		ExperimentVariantConfig variantConfig = loadConfig(projectRoot.resolve("experiment-config.yaml"));
+
+		// Apply item filter if specified
+		if (targetItem != null) {
+			variantConfig = variantConfig.withItemFilter(targetItem);
+			logger.info("Filtering to single item: {}", targetItem);
+		}
+
+		final ExperimentVariantConfig config = variantConfig;
 		logger.info("Loaded experiment '{}' with {} variants (model={}, timeout={}min)",
 				config.experimentName(), config.variants().size(),
 				config.defaultModel(), config.timeoutMinutes());

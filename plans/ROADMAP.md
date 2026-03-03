@@ -2,7 +2,7 @@
 
 > **Created**: 2026-03-01
 > **Last updated**: 2026-03-02
-> **Status**: Stage 1 complete (Steps 1.0–1.5). Ready for Stage 2.
+> **Status**: Stage 2 in progress. Step 2.2a (pipeline validation) complete. Ready for Step 2.2.
 
 ## Overview
 
@@ -244,17 +244,47 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 - [x] Create: `plans/learnings/step-2.1-knowledge-injection.md`
 - [x] Update `CLAUDE.md` with distilled learnings
 - [x] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [x] COMMIT (`984254f`)
 
 **Deliverables**: JIT knowledge injection via workspace file copying, per-variant invoker construction
+
+---
+
+### Step 2.2a: Dry-run Pipeline Validation
+
+**Entry criteria**:
+- [x] Step 2.1 complete
+- [x] Read: `plans/learnings/step-2.1-knowledge-injection.md`
+
+**Work items**:
+- [x] FIX `JudgmentContextFactory` — add `invocationResult.metadata()` pass-through (upstream: experiment-core)
+- [x] FIX `CoveragePreservationJudge` — accept String baseline with double parsing fallback (upstream: agent-judge-exec)
+- [x] FIX `CoverageImprovementJudge` — accept String baseline with double parsing fallback (upstream: agent-judge-exec)
+- [x] INSTALL upstream deps locally (`experiment-core`, `agent-judge-exec`)
+- [x] ADD `--item <slug>` CLI filter via `SlugFilteringDatasetManager` wrapper
+- [x] VERIFY: `./mvnw compile` — compiles with updated deps
+- [x] VERIFY: `./mvnw test` — 17 existing tests pass
+
+**Exit criteria**:
+- [x] Metadata flows from InvocationResult → JudgmentContext (upstream fix installed)
+- [x] Coverage judges accept string-encoded baselines (upstream fix installed)
+- [x] `--item` CLI filter works for single-item smoke testing
+- [x] Run instructions documented in CLAUDE.md
+- [x] All tests pass: `./mvnw test`
+- [x] Create: `plans/learnings/step-2.2a-pipeline-validation.md`
+- [x] Update `CLAUDE.md` with distilled learnings
+- [x] Update `ROADMAP.md` — insert Step 2.2a
+- [x] COMMIT
+
+**Deliverables**: Upstream metadata fixes, String baseline parsing, `--item` CLI filter, run instructions
 
 ---
 
 ### Step 2.2: Run Control Variant
 
 **Entry criteria**:
-- [ ] Step 2.1 complete
-- [ ] Read: `plans/learnings/step-2.1-knowledge-injection.md` — prior step learnings
+- [ ] Step 2.2a complete
+- [ ] Read: `plans/learnings/step-2.2a-pipeline-validation.md` — prior step learnings
 - [ ] Dataset materialized: `./dataset/materialize.sh --verify` passes
 
 **Work items**:
@@ -394,6 +424,7 @@ plans/learnings/
 ├── step-1.5-stage1-summary.md
 ├── step-2.0-bootstrap.md
 ├── step-2.1-knowledge-injection.md
+├── step-2.2a-pipeline-validation.md
 ├── step-2.2-control.md
 ├── step-2.3-results.md
 ├── step-2.4-stage2-summary.md
@@ -452,3 +483,4 @@ Every step's exit criteria must include:
 | 2026-03-02 | Step 1.4 complete: TestQualityJudge implemented (11 tests passing), JuryFactory wiring ready, learnings captured | Implementation session |
 | 2026-03-02 | Step 1.5 complete: Stage 1 consolidated — LEARNINGS.md compacted, CLAUDE.md updated, all tests pass | Consolidation session |
 | 2026-03-02 | Stage 2 expanded: added bootstrap wiring (2.0-2.1) before experiment runs (2.2-2.3); JIT knowledge injection design | Plan-to-roadmap conversion |
+| 2026-03-02 | Step 2.2a complete: pipeline validation — fixed metadata pass-through, String baseline parsing, added --item CLI filter | Pipeline validation session |

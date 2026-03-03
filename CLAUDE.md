@@ -16,7 +16,7 @@ Agent experiment: improve JUnit test coverage on Spring Boot projects using AI a
 
 **Source of truth**: `plans/ROADMAP.md`
 
-**Current state**: Stage 2 in progress. Step 2.0 (bootstrap wiring) complete. ExperimentApp.main() is runnable with CLI args.
+**Current state**: Stage 2 in progress. Step 2.2a (pipeline validation) complete. Upstream metadata fixes installed. Ready for Step 2.2 (control variant run).
 
 ## Architecture
 
@@ -117,10 +117,38 @@ For full details: `plans/learnings/LEARNINGS.md`
 - `AgentInvoker` removed from constructor — per-variant `CodeCoverageAgentInvoker` created via `createInvoker(VariantSpec)` in `runVariant()`
 - `CoverageImprovementJudge` existed in agent-judge source but was missing from installed JAR — re-install from `~/community/agent-judge` was needed. Always verify installed JARs match source.
 
+**Pipeline validation** (Step 2.2a):
+- `JudgmentContextFactory` did NOT forward `InvocationResult.metadata()` to `JudgmentContext` — coverage metrics never reached judges. Fixed upstream.
+- Coverage judges (`CoveragePreservationJudge`, `CoverageImprovementJudge`) only accepted `CoverageMetrics` objects but invoker stores `String.valueOf(double)`. Added String fallback parsing upstream.
+- `--item <slug>` CLI filter added via `SlugFilteringDatasetManager` wrapper — no upstream changes needed for single-item smoke testing.
+- Always trace the full data path (invoker → metadata → factory → context → judge) before running experiments. Silent abstain is worse than a crash.
+
 **Knowledge injection** (Step 2.1):
 - `CodeCoverageAgentInvoker` has optional `knowledgeSourceDir` + `knowledgeFiles` — copies files into `workspace/knowledge/` before agent invocation
 - `index.md` in knowledgeFiles triggers full recursive tree copy (variant-c); otherwise only listed files are copied (variant-b)
 - `copyKnowledge()` is package-private for direct unit testing (same pattern as `parseJudgment()`)
+
+## Running the Experiment
+
+**From a plain terminal** (not within a Claude Code session — the agent spawns `claude` CLI which triggers nesting detection):
+
+```bash
+# Single variant, all items
+./mvnw compile exec:java -Dexec.args="--variant control"
+
+# Single variant, single item (smoke test)
+./mvnw compile exec:java -Dexec.args="--variant control --item gs-rest-service"
+
+# All variants with growth story generation
+./mvnw compile exec:java -Dexec.args="--run-all-variants"
+
+# Custom project root
+./mvnw compile exec:java -Dexec.args="--variant control --project-root /path/to/project"
+```
+
+**Claude nesting workaround**: If you must run from within a Claude Code session, use `~/scripts/claude-run.sh` wrapper which uses `systemd-run` to escape process tree detection.
+
+Results are written to `results/` directory as JSON. Workspaces are preserved under `results/<experiment>/<run-id>/workspaces/`.
 
 ## Knowledge Extraction Backlog
 
