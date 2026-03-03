@@ -1,8 +1,8 @@
 # Roadmap: Code Coverage Experiment
 
 > **Created**: 2026-03-01
-> **Last updated**: 2026-03-02
-> **Status**: Stage 2 in progress. Step 2.2a (pipeline validation) complete. Ready for Step 2.2.
+> **Last updated**: 2026-03-03
+> **Status**: Stage 2 in progress. Step 2.2b (agent exhaust capture) code complete — wired across 4 repos. Smoke test pending. Next: Step 2.2 (re-run control with exhaust capture).
 
 ## Overview
 
@@ -280,34 +280,85 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 ---
 
-### Step 2.2: Run Control Variant
+### Step 2.2b: Wire Agent Exhaust Capture
 
 **Entry criteria**:
-- [ ] Step 2.2a complete
-- [ ] Read: `plans/learnings/step-2.2a-pipeline-validation.md` — prior step learnings
-- [ ] Dataset materialized: `./dataset/materialize.sh --verify` passes
+- [x] Step 2.2a complete
+- [x] Read: `plans/learnings/step-2.2a-pipeline-validation.md` — prior step learnings
+
+**Context**: Control and variant-a runs completed but with zero exhaust visibility — `InvocationResult.phases` is always `List.of()`, tokens/cost are zeros. `ClaudeAgentModel.call()` discards all tool calls, thinking blocks, and cost data. The infrastructure exists but isn't wired: `SessionLogParser.parse()` can convert `Iterator<ParsedMessage>` → `PhaseCapture`, and `InvocationResult` already has a `List<PhaseCapture> phases` field.
+
+Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `io.github.markpollack:claude-code-capture` (agent-journal) — identical `PhaseCapture` record, different coordinates.
 
 **Work items**:
-- [ ] RUN control variant: `java -jar target/...jar --variant control`
-  - Model: claude-haiku-4-5-20251001, timeout: 15 min/item, prompt: v0-naive.txt, no knowledge
-  - 5 items × 15 min max = up to 75 min worst case
-- [ ] VERIFY results stored in `results/` directory as JSON
-- [ ] REVIEW preserved workspaces — did agent write tests? do they compile?
-- [ ] RECORD baseline coverage numbers (per item: before/after line%, branch%)
-- [ ] RECORD jury verdicts — which tiers pass/fail for each item?
-- [ ] DIAGNOSE any failures — did the agent hit timeout? did builds break? did JaCoCo report correctly?
+- [x] FIX prompt log truncation in `DefaultClaudeSyncClient.java` (line 220): change `Math.min(50, ...)` to `Math.min(200, ...)` and log full length
+  - Repo: `~/community/claude-agent-sdk-java`
+  - `./mvnw install -DskipTests`
+- [x] WIRE `SessionLogParser.parse()` in `ClaudeAgentModel.call()` (lines 247-270):
+  - Replace manual `Iterator<ParsedMessage>` text-only loop with `SessionLogParser.parse(response, "agent-run", prompt)`
+  - Store resulting `PhaseCapture` in `AgentResponseMetadata` providerFields under key `"phaseCapture"`
+  - Also populate `inputTokens`, `outputTokens`, `thinkingTokens`, `totalCostUsd` from capture
+  - Added `TeeingIterator` inner class for backward-compatible `messageListener` support
+  - Repo: `~/community/agent-client/agent-models/spring-ai-claude-agent`
+- [x] ADD typed accessor `getPhaseCapture()` on `AgentClientResponse`
+  - Returns `PhaseCapture` from `agentResponse.getMetadata().get("phaseCapture")`
+  - Repo: `~/community/agent-client/spring-ai-agent-client`
+  - `./mvnw install -DskipTests` (agent-client)
+- [x] CONSOLIDATE PhaseCapture coordinates in experiment-core:
+  - Remove: `com.tuvium:claude-sdk-capture` dependency
+  - Add: `io.github.markpollack:claude-code-capture:0.1.0-SNAPSHOT`
+  - Update imports: `com.tuvium.claude.capture` → `io.github.markpollack.journal.claude` (7 files: 5 main + 2 test + 1 inline FQN)
+  - Repo: `~/tuvium/projects/tuvium-experiment-driver/experiment-core`
+  - `./mvnw install -pl experiment-core -DskipTests` — 372 tests pass
+- [x] UPDATE `CodeCoverageAgentInvoker` to extract and forward phases:
+  - Extract `PhaseCapture` from `AgentClientResponse.getPhaseCapture()`
+  - Pass to `InvocationResult.completed(phases, inputTokens, outputTokens, ...)`
+  - Repo: `~/projects/code-coverage-experiment`
+- [x] VERIFY: `./mvnw test` — 21 tests pass
+- [ ] SMOKE TEST: `--variant control --item gs-rest-service` — verify `invocationResult.phases` is non-empty in results JSON with tool calls, thinking, non-zero tokens/cost
 
 **Exit criteria**:
-- [ ] Control results in `results/` directory
-- [ ] Baseline coverage numbers recorded in learnings
-- [ ] Jury verdicts recorded (T0-T3 per item)
-- [ ] Any pipeline issues identified and fixed
+- [ ] Results JSON contains structured agent exhaust (phases with tool calls, thinking blocks)
+- [ ] Token counts and cost are non-zero in InvocationResult
+- [x] PhaseCapture coordinates consolidated to `io.github.markpollack:claude-code-capture`
+- [x] All tests pass: `./mvnw test` (21 tests + 372 experiment-core tests)
+- [ ] Create: `plans/learnings/step-2.2b-exhaust-capture.md`
+- [ ] Update `CLAUDE.md` with distilled learnings
+- [ ] Update `ROADMAP.md` checkboxes
+- [ ] COMMIT
+
+**Deliverables**: End-to-end agent exhaust capture, consolidated PhaseCapture coordinates
+
+---
+
+### Step 2.2: Re-run Control Variant (with exhaust capture)
+
+**Entry criteria**:
+- [ ] Step 2.2b complete
+- [ ] Read: `plans/learnings/step-2.2b-exhaust-capture.md` — prior step learnings
+- [ ] Dataset materialized: `./dataset/materialize.sh --verify` passes
+
+**Prior runs (without exhaust)**:
+- Control: 60% pass rate (3/5). Baselines 57-92%. Agent added trivial `main()` tests.
+- Variant-a: 40% pass rate (2/5). Hardened prompt prevented trivial tests but agent couldn't find alternatives on 3 items.
+- Both runs have zero exhaust data — can't diagnose failures.
+
+**Work items**:
+- [ ] RUN control variant: `~/scripts/claude-run-stream.sh "./mvnw compile exec:java -Dexec.args='--variant control'"`
+  - Model: claude-haiku-4-5-20251001, timeout: 15 min/item, prompt: v0-naive.txt, no knowledge
+- [ ] VERIFY results contain non-empty phases with tool calls, thinking, tokens, cost
+- [ ] REVIEW agent exhaust for gs-rest-service — what did the agent actually do?
+- [ ] RECORD baseline coverage, jury verdicts (T0-T3), and exhaust summary per item
+
+**Exit criteria**:
+- [ ] Control results in `results/` with full exhaust capture
+- [ ] Agent behavior documented from exhaust data
 - [ ] Create: `plans/learnings/step-2.2-control.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: Control variant results, baseline coverage data, pipeline validation
+**Deliverables**: Control variant results with full agent exhaust, behavior analysis
 
 ---
 
@@ -425,6 +476,7 @@ plans/learnings/
 ├── step-2.0-bootstrap.md
 ├── step-2.1-knowledge-injection.md
 ├── step-2.2a-pipeline-validation.md
+├── step-2.2b-exhaust-capture.md
 ├── step-2.2-control.md
 ├── step-2.3-results.md
 ├── step-2.4-stage2-summary.md
@@ -484,3 +536,6 @@ Every step's exit criteria must include:
 | 2026-03-02 | Step 1.5 complete: Stage 1 consolidated — LEARNINGS.md compacted, CLAUDE.md updated, all tests pass | Consolidation session |
 | 2026-03-02 | Stage 2 expanded: added bootstrap wiring (2.0-2.1) before experiment runs (2.2-2.3); JIT knowledge injection design | Plan-to-roadmap conversion |
 | 2026-03-02 | Step 2.2a complete: pipeline validation — fixed metadata pass-through, String baseline parsing, added --item CLI filter | Pipeline validation session |
+| 2026-03-03 | Fixed VerdictExtractor to recurse into subVerdicts — all 4 tiers now surface in results | Variant-a debugging |
+| 2026-03-03 | Ran control (60% pass, 3/5) and variant-a (40% pass, 2/5) — zero exhaust data, can't diagnose failures | Initial variant runs |
+| 2026-03-03 | Added Step 2.2b: wire agent exhaust capture via SessionLogParser + consolidate PhaseCapture coordinates | Agent exhaust gap discovered |

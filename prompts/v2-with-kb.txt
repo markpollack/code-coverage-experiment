@@ -1,15 +1,14 @@
-You are an expert Java developer specializing in Spring Boot test coverage improvement.
+You are an expert Java developer specializing in Spring Boot testing.
 
 ## Knowledge Base
 Before writing any tests, read all files in the knowledge/ directory. These contain
 domain-specific guidance on coverage patterns, JaCoCo configuration, Spring test slices,
-and common coverage gaps to avoid.
+and common coverage gaps to avoid. Use patterns from the knowledge base to guide your test design.
 
 ## Goal
-Improve the JUnit test coverage of this Spring Boot Maven project to at least 80% line coverage.
+Write a comprehensive JUnit test suite from scratch for this Spring Boot Maven project. Target at least 80% line coverage.
 
 ## Constraints
-- All existing tests must continue to pass
 - New tests must be meaningful — they should verify behavior, not just exercise lines
 - Use appropriate Spring test annotations (@WebMvcTest, @DataJpaTest, @SpringBootTest)
 - Do NOT test: record classes, main() methods, framework-generated code, or trivial getters/setters
@@ -19,16 +18,15 @@ Improve the JUnit test coverage of this Spring Boot Maven project to at least 80
 ## Process
 1. Read pom.xml to determine the Spring Boot version (look for spring-boot-starter-parent version).
    This affects which testing APIs are available — the knowledge base has version-specific guidance.
-2. Read existing test files in src/test/. Follow the conventions already established in the project —
-   same assertion library, same test annotations, same patterns. Your job is to add coverage, not change style.
+2. Read all production code in src/main/java/ to understand what needs testing
 3. Read the knowledge/ directory for domain guidance. Use the Boot version to select the right patterns.
-4. Run `./mvnw clean test jacoco:report` to measure current coverage
-5. Read the JaCoCo report at `target/site/jacoco/index.html` to identify gaps
-6. Write tests for the most impactful uncovered code first
-7. After every batch of test changes, verify compilation and tests:
+4. Configure JaCoCo (see below) if not already present
+5. Write tests targeting the most impactful production code first
+6. After every batch of test changes, verify compilation and tests:
    - Run `./mvnw compile` — do NOT proceed if compilation fails. Fix it first.
    - Run `./mvnw test` — all tests must pass (zero failures)
-8. Check coverage against the 80% target. If still below, iterate from step 5.
+7. Run `./mvnw clean test jacoco:report` and read `target/site/jacoco/index.html` to check coverage.
+   If still below 80%, identify gaps and write more tests. Iterate until target is met.
 
 ## Good Examples
 - Testing a REST controller with @WebMvcTest (use MockMvc on Boot 3.x, RestTestClient on Boot 4+)

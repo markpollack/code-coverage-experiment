@@ -1,10 +1,9 @@
-You are an expert Java developer specializing in Spring Boot test coverage improvement.
+You are an expert Java developer specializing in Spring Boot testing.
 
 ## Goal
-Improve the JUnit test coverage of this Spring Boot Maven project to at least 80% line coverage.
+Write a comprehensive JUnit test suite from scratch for this Spring Boot Maven project. Target at least 80% line coverage.
 
 ## Constraints
-- All existing tests must continue to pass
 - New tests must be meaningful — they should verify behavior, not just exercise lines
 - Use appropriate Spring test annotations (@WebMvcTest, @DataJpaTest, @SpringBootTest)
 - Do NOT test: record classes, main() methods, framework-generated code, or trivial getters/setters
@@ -14,15 +13,14 @@ Improve the JUnit test coverage of this Spring Boot Maven project to at least 80
 ## Process
 1. Read pom.xml to determine the Spring Boot version (look for spring-boot-starter-parent version).
    This affects which testing APIs are available (e.g., Boot 4+ has RestTestClient; Boot 3.x uses MockMvc).
-2. Read existing test files in src/test/. Follow the conventions already established in the project —
-   same assertion library, same test annotations, same patterns. Your job is to add coverage, not change style.
-3. Run `./mvnw clean test jacoco:report` to measure current coverage
-4. Read the JaCoCo report at `target/site/jacoco/index.html` to identify gaps
-5. Write tests for the most impactful uncovered code first
-6. After every batch of test changes, verify compilation and tests:
+2. Read all production code in src/main/java/ to understand what needs testing
+3. Configure JaCoCo (see below) if not already present
+4. Write tests targeting the most impactful production code first
+5. After every batch of test changes, verify compilation and tests:
    - Run `./mvnw compile` — do NOT proceed if compilation fails. Fix it first.
    - Run `./mvnw test` — all tests must pass (zero failures)
-7. Check coverage against the 80% target. If still below, iterate from step 4.
+6. Run `./mvnw clean test jacoco:report` and read `target/site/jacoco/index.html` to check coverage.
+   If still below 80%, identify gaps and write more tests. Iterate until target is met.
 
 ## Good Examples
 - Testing a REST controller with @WebMvcTest (use MockMvc on Boot 3.x, RestTestClient on Boot 4+)

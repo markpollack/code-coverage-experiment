@@ -11,6 +11,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 
+import io.github.markpollack.journal.claude.PhaseCapture;
 import ai.tuvium.experiment.agent.AgentInvocationException;
 import ai.tuvium.experiment.agent.AgentInvoker;
 import ai.tuvium.experiment.agent.InvocationContext;
@@ -77,11 +78,18 @@ public class CodeCoverageAgentInvoker implements AgentInvoker {
 		// 2. Ensure JaCoCo plugin is in pom.xml so baseline measurement works
 		ensureJaCoCoPlugin(workspace);
 
-		// 3. Measure baseline coverage
-		logger.info("Step 3: Measuring baseline coverage");
-		CoverageMetrics baseline = measureCoverage(workspace);
-		logger.info("Baseline coverage: line={}%, branch={}%",
-				baseline.lineCoverage(), baseline.branchCoverage());
+		// 3. Measure baseline coverage (skip if no test files exist)
+		CoverageMetrics baseline;
+		if (hasTestFiles(workspace)) {
+			logger.info("Step 3: Measuring baseline coverage");
+			baseline = measureCoverage(workspace);
+			logger.info("Baseline coverage: line={}%, branch={}%",
+					baseline.lineCoverage(), baseline.branchCoverage());
+		}
+		else {
+			logger.info("Step 3: No test files found — baseline is 0%");
+			baseline = new CoverageMetrics(0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, "No tests");
+		}
 
 		// 4. Copy knowledge files into workspace (if configured)
 		copyKnowledge(workspace);
@@ -104,8 +112,16 @@ public class CodeCoverageAgentInvoker implements AgentInvoker {
 					context.metadata());
 		}
 
-		// 6. Measure final coverage
-		logger.info("Step 6: Measuring final coverage");
+		// 6. Extract agent exhaust capture
+		PhaseCapture capture = response.getPhaseCapture();
+		if (capture != null) {
+			logger.info("Agent exhaust: {} turns, {} in + {} out tokens, ${}",
+					capture.numTurns(), capture.inputTokens(), capture.outputTokens(),
+					String.format("%.4f", capture.totalCostUsd()));
+		}
+
+		// 7. Measure final coverage
+		logger.info("Step 7: Measuring final coverage");
 		CoverageMetrics finalCov = measureCoverage(workspace);
 		double improvement = finalCov.lineCoverage() - baseline.lineCoverage();
 		logger.info("Final coverage: line={}%, branch={}% (improvement: {}pp)",
@@ -121,14 +137,16 @@ public class CodeCoverageAgentInvoker implements AgentInvoker {
 		enrichedMetadata.put("finalBranchCoverage", String.valueOf(finalCov.branchCoverage()));
 		enrichedMetadata.put("coverageImprovement", String.valueOf(improvement));
 
+		List<PhaseCapture> phases = capture != null ? List.of(capture) : List.of();
+
 		return InvocationResult.completed(
-				List.of(),      // phases — no phase capture in this simple invoker
-				0,              // inputTokens — not tracked at this level
-				0,              // outputTokens
-				0,              // thinkingTokens
-				0.0,            // costUsd
+				phases,
+				capture != null ? capture.inputTokens() : 0,
+				capture != null ? capture.outputTokens() : 0,
+				capture != null ? capture.thinkingTokens() : 0,
+				capture != null ? capture.totalCostUsd() : 0.0,
 				durationMs,
-				null,           // sessionId
+				capture != null ? capture.sessionId() : null,
 				enrichedMetadata
 		);
 	}
@@ -261,12 +279,36 @@ public class CodeCoverageAgentInvoker implements AgentInvoker {
 
 	private String buildPrompt(String basePrompt, CoverageMetrics baseline) {
 		StringBuilder sb = new StringBuilder(basePrompt);
-		sb.append("\n\n## Current Coverage Metrics\n");
-		sb.append("- Line coverage: ").append(String.format("%.1f", baseline.lineCoverage())).append("%\n");
-		sb.append("- Branch coverage: ").append(String.format("%.1f", baseline.branchCoverage())).append("%\n");
-		sb.append("- Lines covered: ").append(baseline.linesCovered()).append("/").append(baseline.linesTotal()).append("\n");
-		sb.append("\nNote: JaCoCo is already configured. Run `./mvnw clean test jacoco:report` to regenerate coverage.\n");
+		if (baseline.lineCoverage() == 0.0 && baseline.linesTotal() == 0) {
+			sb.append("\n\n## Current State\n");
+			sb.append("No tests exist yet. Coverage is 0%.\n");
+			sb.append("JaCoCo is already configured. Run `./mvnw clean test jacoco:report` to generate coverage reports.\n");
+		}
+		else {
+			sb.append("\n\n## Current Coverage Metrics\n");
+			sb.append("- Line coverage: ").append(String.format("%.1f", baseline.lineCoverage())).append("%\n");
+			sb.append("- Branch coverage: ").append(String.format("%.1f", baseline.branchCoverage())).append("%\n");
+			sb.append("- Lines covered: ").append(baseline.linesCovered()).append("/").append(baseline.linesTotal()).append("\n");
+			sb.append("\nNote: JaCoCo is already configured. Run `./mvnw clean test jacoco:report` to regenerate coverage.\n");
+		}
 		return sb.toString();
+	}
+
+	/**
+	 * Check if the workspace has any Java test files under src/test/java/.
+	 */
+	boolean hasTestFiles(Path workspace) {
+		Path testJavaDir = workspace.resolve("src/test/java");
+		if (!Files.isDirectory(testJavaDir)) {
+			return false;
+		}
+		try (var stream = Files.walk(testJavaDir)) {
+			return stream.anyMatch(p -> p.toString().endsWith(".java"));
+		}
+		catch (IOException ex) {
+			logger.warn("Failed to scan test directory: {}", ex.getMessage());
+			return false;
+		}
 	}
 
 	private CoverageMetrics measureCoverage(Path workspace) {

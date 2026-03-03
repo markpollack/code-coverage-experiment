@@ -67,13 +67,52 @@ done
 
 echo ""
 
+# Step 2a: Save reference tests (Spring developers' gold standard)
+echo "=== Saving reference tests ==="
+for guide in "${GUIDES[@]}"; do
+  BEFORE_DIR="$ITEMS_DIR/$guide/before"
+  REF_DIR="$ITEMS_DIR/$guide/reference"
+
+  if [[ -d "$REF_DIR" ]]; then
+    rm -rf "$REF_DIR"
+  fi
+
+  if [[ -d "$BEFORE_DIR/src/test" ]]; then
+    mkdir -p "$REF_DIR/src"
+    cp -r "$BEFORE_DIR/src/test" "$REF_DIR/src/test"
+    REF_COUNT=$(find "$REF_DIR" -name "*.java" -type f | wc -l)
+    echo "[$guide] Saved $REF_COUNT reference test files"
+  else
+    echo "[$guide] WARNING: No src/test/ found — skipping reference save"
+  fi
+done
+
+echo ""
+
+# Step 2b: Strip tests from before/ (agent writes from scratch)
+echo "=== Stripping tests from before/ ==="
+for guide in "${GUIDES[@]}"; do
+  BEFORE_DIR="$ITEMS_DIR/$guide/before"
+  TEST_JAVA_DIR="$BEFORE_DIR/src/test/java"
+
+  if [[ -d "$TEST_JAVA_DIR" ]]; then
+    rm -rf "$TEST_JAVA_DIR"
+    mkdir -p "$TEST_JAVA_DIR"
+    echo "[$guide] Stripped test sources (kept src/test/resources/)"
+  else
+    echo "[$guide] No src/test/java/ to strip"
+  fi
+done
+
+echo ""
+
 # Step 3: Optional verification
 if [[ "$VERIFY" == true ]]; then
   echo "=== Verifying builds ==="
   for guide in "${GUIDES[@]}"; do
     BEFORE_DIR="$ITEMS_DIR/$guide/before"
-    echo "[$guide] Running ./mvnw clean compile test..."
-    if (cd "$BEFORE_DIR" && ./mvnw clean compile test -q); then
+    echo "[$guide] Running ./mvnw clean compile..."
+    if (cd "$BEFORE_DIR" && ./mvnw clean compile -q); then
       echo "[$guide] BUILD SUCCESS"
     else
       echo "[$guide] BUILD FAILED"
