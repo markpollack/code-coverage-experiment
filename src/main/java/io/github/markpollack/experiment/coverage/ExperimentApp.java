@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import ai.tuvium.experiment.diagnostic.EfficiencyConfig;
 import ai.tuvium.experiment.dataset.DatasetManager;
 import ai.tuvium.experiment.comparison.ComparisonEngine;
 import ai.tuvium.experiment.comparison.ComparisonResult;
@@ -85,6 +86,7 @@ public class ExperimentApp {
 			.knowledgeBaseDir(variant.knowledgeDir() != null ? projectRoot.resolve(variant.knowledgeDir()) : null)
 			.preserveWorkspaces(true)
 			.outputDir(projectRoot.resolve("results"))
+			.efficiencyConfig(EfficiencyConfig.defaults())
 			.build();
 
 		DatasetManager datasetManager = variantConfig.itemSlugFilter() != null
