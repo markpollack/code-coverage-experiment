@@ -1,12 +1,12 @@
 # Roadmap: Code Coverage Experiment
 
 > **Created**: 2026-03-01
-> **Last updated**: 2026-03-01
+> **Last updated**: 2026-03-02
 > **Status**: Stage 1 complete (Steps 1.0–1.5). Ready for Stage 2.
 
 ## Overview
 
-Grow a code coverage improvement agent through 4 variants across 5 Spring Getting Started guides. Test the hypothesis that knowledge injection > prompt engineering > model choice. Stage 1 builds all infrastructure (invoker, judges, dataset). Stage 2 runs variants and collects data. Stage 3 analyzes results. This experiment calibrates the methodology; harder targets and cross-model comparison are planned iterations.
+Grow a code coverage improvement agent through 4 variants across 5 Spring Getting Started guides. Test the hypothesis that knowledge injection > prompt engineering > model choice. Stage 1 builds all infrastructure (invoker, judges, dataset). Stage 2 wires bootstrap + knowledge injection, then runs variants and collects data. Stage 3 analyzes results. This experiment calibrates the methodology; harder targets and cross-model comparison are planned iterations.
 
 > **Before every commit**: Verify ALL exit criteria for the current step are met. Do NOT remove exit criteria to mark a step complete — fulfill them.
 
@@ -179,7 +179,7 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 - [x] Create: `plans/learnings/step-1.5-stage1-summary.md`
 - [x] Update `CLAUDE.md` with distilled learnings
 - [x] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [x] COMMIT (`7c459d4`)
 
 **Deliverables**: Compacted `LEARNINGS.md`, stage summary, clean `CLAUDE.md`
 
@@ -187,47 +187,119 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 ## Stage 2: Variant Execution
 
-### Step 2.0: Run Control Variant
+### Step 2.0: Wire ExperimentApp Bootstrap
 
 **Entry criteria**:
-- [ ] Stage 1 complete
+- [x] Stage 1 complete
 - [ ] Read: `plans/learnings/LEARNINGS.md` — Stage 1 compacted learnings
 - [ ] Read: `plans/learnings/step-1.5-stage1-summary.md` — stage summary
 
 **Work items**:
-- [ ] RUN control variant (v0-naive, no KB) on all 5 guides
-- [ ] VERIFY results are stored correctly in results/ directory
-- [ ] REVIEW baseline growth story
-- [ ] RECORD baseline coverage numbers
+- [ ] IMPLEMENT `loadConfig(Path)` method — parse `experiment-config.yaml` via SnakeYAML into `ExperimentVariantConfig` with `FileSystemDatasetManager`
+- [ ] IMPLEMENT `main()` method — CLI parsing (`--variant <name>` / `--run-all-variants`), component wiring:
+  - `FileSystemResultStore(projectRoot.resolve("results"))`
+  - `JuryFactory` with 4 tiers: T0 `BuildSuccessJudge.maven("clean", "test")`, T1 `CoveragePreservationJudge()`, T2 `CoverageImprovementJudge()`, T3 `TestQualityJudge` with `defaultAgentClientFactory("claude-sonnet-4-6", 3min)`
+  - `ExperimentApp` construction and dispatch
+- [ ] REFACTOR `ExperimentApp` to create per-variant `CodeCoverageAgentInvoker` in `runVariant()` — remove `AgentInvoker` from constructor (each variant may have different knowledge config)
+- [ ] VERIFY: `./mvnw compile` — all new imports resolve
+- [ ] VERIFY: `./mvnw test` — 11 existing tests still pass
 
 **Exit criteria**:
-- [ ] Control results in results/ directory
-- [ ] Baseline coverage numbers recorded
-- [ ] Create: `plans/learnings/step-2.0-control.md`
+- [ ] `ExperimentApp.main()` is no longer a stub — can be invoked from CLI
+- [ ] Config loading parses all 4 variants from YAML
+- [ ] All tests pass: `./mvnw test`
+- [ ] Create: `plans/learnings/step-2.0-bootstrap.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: Control variant results, baseline coverage data
+**Deliverables**: Runnable `ExperimentApp` with full component wiring, CLI argument parsing
 
 ---
 
-### Step 2.1: Run All Variants
+### Step 2.1: Add JIT Knowledge Injection
 
 **Entry criteria**:
 - [ ] Step 2.0 complete
-- [ ] Read: `plans/learnings/step-2.0-control.md` — prior step learnings
+- [ ] Read: `plans/learnings/step-2.0-bootstrap.md` — prior step learnings
 
 **Work items**:
-- [ ] RUN variant-a (v1-hardened, no KB)
-- [ ] RUN variant-b (v2-with-kb, 3 KB files)
-- [ ] RUN variant-c (v2-with-kb, 4 KB files)
-- [ ] GENERATE growth story with all variant comparisons
+- [ ] ADD optional knowledge config to `CodeCoverageAgentInvoker`:
+  - Fields: `@Nullable Path knowledgeSourceDir`, `@Nullable List<String> knowledgeFiles`
+  - New constructor alongside existing no-arg constructor
+- [ ] IMPLEMENT knowledge file copying in `invoke()` (after baseline measurement, before agent invocation):
+  - If `knowledgeFiles` contains `index.md` → copy entire `knowledgeSourceDir` recursively (variant-c: full KB tree for JIT navigation)
+  - Otherwise → copy only listed files preserving relative paths (variant-b: 3 targeted files)
+  - Target: `workspace/knowledge/` directory
+- [ ] WIRE per-variant invoker creation in `ExperimentApp.runVariant()`:
+  - `variant.knowledgeDir() != null` → `new CodeCoverageAgentInvoker(projectRoot.resolve(knowledgeDir), knowledgeFiles)`
+  - Otherwise → `new CodeCoverageAgentInvoker()`
+- [ ] VERIFY: `./mvnw test` — existing tests pass, add test for knowledge file copying if feasible
 
 **Exit criteria**:
-- [ ] `analysis/growth-story.md` generated with all 4 variants
-- [ ] Coverage improvement data validates hypothesis (KB > prompt > baseline)
-- [ ] Create: `plans/learnings/step-2.1-results.md`
+- [ ] Control/variant-a invoke with no knowledge (empty workspace)
+- [ ] variant-b copies 3 targeted files to `workspace/knowledge/coverage-mechanics/`
+- [ ] variant-c copies full KB tree to `workspace/knowledge/` (agent can JIT navigate from index.md)
+- [ ] All tests pass: `./mvnw test`
+- [ ] Create: `plans/learnings/step-2.1-knowledge-injection.md`
+- [ ] Update `CLAUDE.md` with distilled learnings
+- [ ] Update `ROADMAP.md` checkboxes
+- [ ] COMMIT
+
+**Deliverables**: JIT knowledge injection via workspace file copying, per-variant invoker construction
+
+---
+
+### Step 2.2: Run Control Variant
+
+**Entry criteria**:
+- [ ] Step 2.1 complete
+- [ ] Read: `plans/learnings/step-2.1-knowledge-injection.md` — prior step learnings
+- [ ] Dataset materialized: `./dataset/materialize.sh --verify` passes
+
+**Work items**:
+- [ ] RUN control variant: `java -jar target/...jar --variant control`
+  - Model: claude-haiku-4-5-20251001, timeout: 15 min/item, prompt: v0-naive.txt, no knowledge
+  - 5 items × 15 min max = up to 75 min worst case
+- [ ] VERIFY results stored in `results/` directory as JSON
+- [ ] REVIEW preserved workspaces — did agent write tests? do they compile?
+- [ ] RECORD baseline coverage numbers (per item: before/after line%, branch%)
+- [ ] RECORD jury verdicts — which tiers pass/fail for each item?
+- [ ] DIAGNOSE any failures — did the agent hit timeout? did builds break? did JaCoCo report correctly?
+
+**Exit criteria**:
+- [ ] Control results in `results/` directory
+- [ ] Baseline coverage numbers recorded in learnings
+- [ ] Jury verdicts recorded (T0-T3 per item)
+- [ ] Any pipeline issues identified and fixed
+- [ ] Create: `plans/learnings/step-2.2-control.md`
+- [ ] Update `CLAUDE.md` with distilled learnings
+- [ ] Update `ROADMAP.md` checkboxes
+- [ ] COMMIT
+
+**Deliverables**: Control variant results, baseline coverage data, pipeline validation
+
+---
+
+### Step 2.3: Run All Variants
+
+**Entry criteria**:
+- [ ] Step 2.2 complete
+- [ ] Read: `plans/learnings/step-2.2-control.md` — prior step learnings (especially pipeline issues)
+
+**Work items**:
+- [ ] RUN variant-a: `--variant variant-a` (v1-hardened prompt, no KB)
+- [ ] RUN variant-b: `--variant variant-b` (v2-with-kb prompt, 3 KB files)
+- [ ] RUN variant-c: `--variant variant-c` (v2-with-kb prompt, full KB via index.md)
+- [ ] ALTERNATIVELY: `--run-all-variants` (runs all 4 sequentially with growth story generation)
+- [ ] VERIFY growth story generated at `analysis/growth-story.md`
+- [ ] RECORD per-variant: pass rate, coverage improvement, T3 practice adherence scores, cost, tokens
+
+**Exit criteria**:
+- [ ] All 4 variants run successfully (or failures documented)
+- [ ] `analysis/growth-story.md` generated with all variant comparisons
+- [ ] Coverage data validates or refutes hypothesis (KB > prompt > baseline)
+- [ ] Create: `plans/learnings/step-2.3-results.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
@@ -236,19 +308,24 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 ---
 
-### Step 2.2: Stage 2 Consolidation
+### Step 2.4: Stage 2 Consolidation
 
 **Entry criteria**:
-- [ ] All Stage 2 steps complete (2.0–2.1)
+- [ ] All Stage 2 steps complete (2.0–2.3)
 - [ ] Read: all `plans/learnings/step-2.*` files from this stage
 
 **Work items**:
 - [ ] COMPACT learnings from Stage 2 into `plans/learnings/LEARNINGS.md`
+  - Bootstrap patterns (config loading, component wiring, per-variant invokers)
+  - JIT knowledge injection approach and results
+  - Pipeline issues encountered and resolved
+  - Experimental results summary (hypothesis confirmed/refuted?)
+  - Cost/performance observations
 - [ ] UPDATE `CLAUDE.md` with distilled learnings
 
 **Exit criteria**:
 - [ ] `LEARNINGS.md` updated with Stage 2 compacted summary
-- [ ] Create: `plans/learnings/step-2.2-stage2-summary.md`
+- [ ] Create: `plans/learnings/step-2.4-stage2-summary.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
@@ -311,13 +388,15 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
 
 ```
 plans/learnings/
-├── LEARNINGS.md                    # Tier 1: Compacted summary
+├── LEARNINGS.md                    # Tier 1: Compacted summary (Stages 1-2)
 ├── step-1.3-dataset.md             # Tier 2: Per-step details
 ├── step-1.4-test-quality-judge.md
 ├── step-1.5-stage1-summary.md
-├── step-2.0-control.md
-├── step-2.1-results.md
-├── step-2.2-stage2-summary.md
+├── step-2.0-bootstrap.md
+├── step-2.1-knowledge-injection.md
+├── step-2.2-control.md
+├── step-2.3-results.md
+├── step-2.4-stage2-summary.md
 ├── step-3.0-analysis.md
 └── step-3.1-graduation.md
 ```
@@ -372,3 +451,4 @@ Every step's exit criteria must include:
 | 2026-03-02 | Judge rubric authored: 6 criteria distilled from 13 KB files into `prompts/judge-practice-adherence.txt` + traceability doc. Refined with zero-tests escape, N/A domains, evidence format. | Rubric authoring session |
 | 2026-03-02 | Step 1.4 complete: TestQualityJudge implemented (11 tests passing), JuryFactory wiring ready, learnings captured | Implementation session |
 | 2026-03-02 | Step 1.5 complete: Stage 1 consolidated — LEARNINGS.md compacted, CLAUDE.md updated, all tests pass | Consolidation session |
+| 2026-03-02 | Stage 2 expanded: added bootstrap wiring (2.0-2.1) before experiment runs (2.2-2.3); JIT knowledge injection design | Plan-to-roadmap conversion |
