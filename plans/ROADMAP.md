@@ -2,7 +2,7 @@
 
 > **Created**: 2026-03-01
 > **Last updated**: 2026-03-03
-> **Status**: Stage 2 in progress. Step 2.2b (agent exhaust capture) code complete — wired across 4 repos. Smoke test pending. Next: Step 2.2 (re-run control with exhaust capture).
+> **Status**: Stage 2 complete. Full suite run done (4 variants × 5 guides, Sonnet, 1h39m). Stage 3 in progress — building Python analysis pipeline.
 
 ## Overview
 
@@ -315,279 +315,271 @@ Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `i
   - Pass to `InvocationResult.completed(phases, inputTokens, outputTokens, ...)`
   - Repo: `~/projects/code-coverage-experiment`
 - [x] VERIFY: `./mvnw test` — 21 tests pass
-- [ ] SMOKE TEST: `--variant control --item gs-rest-service` — verify `invocationResult.phases` is non-empty in results JSON with tool calls, thinking, non-zero tokens/cost
+- [x] SMOKE TEST: `--variant control --item gs-rest-service` — verify `invocationResult.phases` is non-empty in results JSON with tool calls, thinking, non-zero tokens/cost
 
 **Exit criteria**:
-- [ ] Results JSON contains structured agent exhaust (phases with tool calls, thinking blocks)
-- [ ] Token counts and cost are non-zero in InvocationResult
+- [x] Results JSON contains structured agent exhaust (phases with tool calls, thinking blocks)
+- [x] Token counts and cost are non-zero in InvocationResult
 - [x] PhaseCapture coordinates consolidated to `io.github.markpollack:claude-code-capture`
 - [x] All tests pass: `./mvnw test` (21 tests + 372 experiment-core tests)
 - [ ] Create: `plans/learnings/step-2.2b-exhaust-capture.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
+- [x] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
 **Deliverables**: End-to-end agent exhaust capture, consolidated PhaseCapture coordinates
 
 ---
 
-### Step 2.2: Re-run Control Variant (with exhaust capture)
+### Step 2.2c: Golden Test Comparison Judge
 
-**Entry criteria**:
-- [ ] Step 2.2b complete
-- [ ] Read: `plans/learnings/step-2.2b-exhaust-capture.md` — prior step learnings
-- [ ] Dataset materialized: `./dataset/materialize.sh --verify` passes
+**Status**: Complete (code done, uncommitted)
 
-**Prior runs (without exhaust)**:
-- Control: 60% pass rate (3/5). Baselines 57-92%. Agent added trivial `main()` tests.
-- Variant-a: 40% pass rate (2/5). Hardened prompt prevented trivial tests but agent couldn't find alternatives on 3 items.
-- Both runs have zero exhaust data — can't diagnose failures.
+**Context**: SWE-bench style evaluation — compare agent-written tests against reference golden tests from Spring developers using JavaParser AST analysis.
 
 **Work items**:
-- [ ] RUN control variant: `~/scripts/claude-run-stream.sh "./mvnw compile exec:java -Dexec.args='--variant control'"`
-  - Model: claude-haiku-4-5-20251001, timeout: 15 min/item, prompt: v0-naive.txt, no knowledge
-- [ ] VERIFY results contain non-empty phases with tool calls, thinking, tokens, cost
-- [ ] REVIEW agent exhaust for gs-rest-service — what did the agent actually do?
-- [ ] RECORD baseline coverage, jury verdicts (T0-T3), and exhaust summary per item
+- [x] ADD `com.github.javaparser:javaparser-core:3.26.3` to pom.xml
+- [x] IMPLEMENT `GoldenTestComparisonJudge` — 5 structural dimensions (test_method_coverage, annotation_alignment, import_alignment, assertion_style, injection_pattern)
+- [x] WIRE to tier 2 in `ExperimentApp.buildJuryFactory()` with `REJECT_ON_ANY_FAIL` policy
+- [x] WRITE 13 unit tests in `GoldenTestComparisonJudgeTest`
+- [x] VERIFY: `./mvnw test` — 34 tests pass
 
 **Exit criteria**:
-- [ ] Control results in `results/` with full exhaust capture
-- [ ] Agent behavior documented from exhaust data
-- [ ] Create: `plans/learnings/step-2.2-control.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
+- [x] GoldenTestComparisonJudge compiles and passes tests
+- [x] All tests pass: `./mvnw test` — 34 tests
 - [ ] COMMIT
 
-**Deliverables**: Control variant results with full agent exhaust, behavior analysis
+**Deliverables**: `GoldenTestComparisonJudge.java`, `GoldenTestComparisonJudgeTest.java`
 
 ---
 
-### Step 2.3: Run All Variants
+### Step 2.2: Golden Dataset Pivot + Full Suite Run
 
-**Entry criteria**:
-- [ ] Step 2.2 complete
-- [ ] Read: `plans/learnings/step-2.2-control.md` — prior step learnings (especially pipeline issues)
+**Status**: Complete
+
+**Context**: Original dataset had 71-92% baseline coverage — agents did nothing. Pivoted to SWE-bench style: strip all tests, save Spring developers' tests as reference, agents write from scratch (0% baseline).
 
 **Work items**:
-- [ ] RUN variant-a: `--variant variant-a` (v1-hardened prompt, no KB)
-- [ ] RUN variant-b: `--variant variant-b` (v2-with-kb prompt, 3 KB files)
-- [ ] RUN variant-c: `--variant variant-c` (v2-with-kb prompt, full KB via index.md)
-- [ ] ALTERNATIVELY: `--run-all-variants` (runs all 4 sequentially with growth story generation)
-- [ ] VERIFY growth story generated at `analysis/growth-story.md`
-- [ ] RECORD per-variant: pass rate, coverage improvement, T3 practice adherence scores, cost, tokens
+- [x] UPDATE `materialize.sh` — save reference tests + strip test sources from `before/`
+- [x] REWRITE prompts for "write from scratch" (v0-naive, v1-hardened, v2-with-kb)
+- [x] UPDATE `CodeCoverageAgentInvoker` — zero-baseline prompt, skip baseline build when no tests
+- [x] WIRE `DefaultEfficiencyEvaluator` via `EfficiencyConfig.defaults()` in `ExperimentApp`
+- [x] SWITCH model to `claude-sonnet-4-6`
+- [x] RUN full suite: `./mvnw compile exec:java -Dexec.args="--run-all-variants"` (1h39m)
+- [x] VERIFY results: all 4 variants × 5 guides produced results with phases, tokens, cost
+
+**Results summary**:
+| Variant | Pass Rate | Avg T3 | Avg Efficiency | Cost |
+|---------|-----------|--------|----------------|------|
+| Control | 100% | 0.62 | 0.878 | $4.57 |
+| Variant-A | 100% | 0.80 | 0.937 | $4.17 |
+| Variant-B | 80% | 0.69 | — | $6.27 |
+| Variant-C | 80% | 0.74 | — | $5.12 |
+
+**Known issues**:
+- Efficiency scores missing from variant-b/c (ExperimentRunner catches exception silently)
+- Coverage metadata in `invocationResult.metadata`, not `item.metadata`
+- gs-messaging-stomp-websocket failed in variant-b/c (T3=0.45)
 
 **Exit criteria**:
-- [ ] All 4 variants run successfully (or failures documented)
-- [ ] `analysis/growth-story.md` generated with all variant comparisons
-- [ ] Coverage data validates or refutes hypothesis (KB > prompt > baseline)
-- [ ] Create: `plans/learnings/step-2.3-results.md`
+- [x] All 4 variants run with full exhaust capture
+- [x] Results in `results/code-coverage-experiment/`
+- [ ] Create: `plans/learnings/step-2.2-full-suite.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [x] Update `ROADMAP.md` checkboxes
+- [x] COMMIT (`8c13d2b`, `f317194`, `0e93a8d`)
 
-**Deliverables**: All variant results, comparative growth story
+**Deliverables**: Full suite results (20 items), golden dataset, efficiency scoring
 
 ---
 
-### Step 2.4: Stage 2 Consolidation
+### Step 2.3: Stage 2 Consolidation
 
 **Entry criteria**:
-- [ ] All Stage 2 steps complete (2.0–2.3)
+- [ ] All Stage 2 steps complete (2.0–2.2c)
 - [ ] Read: all `plans/learnings/step-2.*` files from this stage
 
 **Work items**:
+- [ ] COMMIT golden judge + outstanding uncommitted changes
 - [ ] COMPACT learnings from Stage 2 into `plans/learnings/LEARNINGS.md`
-  - Bootstrap patterns (config loading, component wiring, per-variant invokers)
-  - JIT knowledge injection approach and results
-  - Pipeline issues encountered and resolved
-  - Experimental results summary (hypothesis confirmed/refuted?)
-  - Cost/performance observations
+  - Golden dataset pivot rationale and results
+  - Efficiency evaluator wiring (ExperimentRunner vs invoker)
+  - Full suite results: prompt > KB for this dataset
+  - Known issues: efficiency gap, coverage metadata location
 - [ ] UPDATE `CLAUDE.md` with distilled learnings
 
 **Exit criteria**:
+- [ ] All uncommitted work committed
 - [ ] `LEARNINGS.md` updated with Stage 2 compacted summary
-- [ ] Create: `plans/learnings/step-2.4-stage2-summary.md`
+- [ ] Create: `plans/learnings/step-2.3-stage2-summary.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: Updated `LEARNINGS.md` covering Stages 1-2
+**Deliverables**: Updated `LEARNINGS.md` covering Stages 1-2, clean git state
 
 ---
 
 ## Stage 3: Data Analysis Pipeline
 
-### Step 3.0: Audit and Debug Result Data
+### Step 3.0: Commit + Investigate Efficiency Gap
 
 **Entry criteria**:
-- [ ] Stage 2 complete (all variants run)
+- [ ] Stage 2 complete
 - [ ] Read: `plans/learnings/LEARNINGS.md` — compacted learnings through Stage 2
 - [ ] Read: `plans/inbox/python-data-analysis-stack.md` — analysis pipeline plan
+- [ ] Read: `plans/inbox/golden-judge-handoff.md` — golden judge context
 
-**Context**: Results data has known gaps from the evolving pipeline. Early control/variant-a runs (pre-exhaust-capture) have zero phases, zero tokens, zero cost. Efficiency scores are only present in runs after the `DefaultEfficiencyEvaluator` was wired. Current audit (2026-03-03):
-
-| Variant | Items | With phases | With efficiency |
-|---------|-------|-------------|-----------------|
-| control | 23 | 15 | 7 |
-| variant-a | 20 | 15 | 5 |
-| variant-b | 12 | 12 | 5 |
-| variant-c | 12 | 12 | 5 |
-
-Agent journal data (tool calls, thinking blocks, cost breakdowns within phases) may also be incomplete or absent in early runs.
+**Context**: Full suite run complete (4 variants × 5 guides, Sonnet). Two data quality issues to resolve before analysis: (1) efficiency scores missing from variant-b/c, (2) golden judge uncommitted. All results use the latest full-suite run (timestamps 07:16-08:32 UTC 2026-03-03).
 
 **Work items**:
-- [ ] WRITE `scripts/audit_results.py` — scan all result JSON files and report:
-  - Per-variant: total items, items with phases, items with efficiency scores, items with non-zero tokens/cost
-  - Per-item: which fields are populated vs zero/empty
-  - Identify which runs are pre-exhaust-capture vs post (timestamp boundary)
-  - Identify which runs are pre-efficiency-evaluator vs post
-  - Check agent journal data completeness (tool calls, thinking blocks within phases)
-- [ ] RUN audit script, save output to `analysis/data-audit.md`
-- [ ] DECIDE: re-run incomplete variants with current pipeline, or mark early runs as "pre-instrumentation" and exclude from analysis?
-  - Re-running is cleaner but costs agent invocation time
-  - Excluding is faster but reduces sample size
-- [ ] IF RE-RUNNING: execute re-runs for items missing phases/efficiency scores
-- [ ] IF EXCLUDING: document exclusion criteria so `load_results.py` can filter
-- [ ] VERIFY: all retained data has complete phases, tokens, cost, and efficiency scores
+- [ ] COMMIT golden judge + outstanding uncommitted changes (pom.xml, GoldenTestComparisonJudge.java, GoldenTestComparisonJudgeTest.java, ExperimentApp.java)
+- [ ] INVESTIGATE efficiency gap: why `efficiency.*` scores absent from variant-b/c:
+  - GREP `full-suite-run.log` for "Efficiency evaluation failed" WARN (ExperimentRunner line 197)
+  - READ `DefaultEfficiencyEvaluator.evaluate()` — what conditions throw?
+  - CHECK if variant-b/c phases have different content (KB reading changes PhaseCapture shape?)
+  - If root cause found → FIX upstream, document for re-run
+  - If not reproducible → document as known gap, ETL handles nullable efficiency columns
+- [ ] DOCUMENT findings in `analysis/data-quality-notes.md`
 
 **Exit criteria**:
-- [ ] `scripts/audit_results.py` written and working
-- [ ] `analysis/data-audit.md` documents the state of all result data
-- [ ] Decision made and documented: re-run vs exclude
-- [ ] All retained result data is complete (no zero-phase, zero-token gaps)
-- [ ] Create: `plans/learnings/step-3.0-data-audit.md`
+- [ ] All uncommitted work committed
+- [ ] Efficiency gap root cause identified (or documented as unknown)
+- [ ] Create: `plans/learnings/step-3.0-data-quality.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: `scripts/audit_results.py`, `analysis/data-audit.md`, clean dataset for analysis
+**Deliverables**: Clean git state, efficiency gap analysis, `analysis/data-quality-notes.md`
 
 ---
 
-### Step 3.1: Python Environment and ETL
+### Step 3.1: Python Environment + ETL
 
 **Entry criteria**:
-- [ ] Step 3.0 complete (clean, audited result data)
-- [ ] Read: `plans/learnings/step-3.0-data-audit.md` — prior step learnings
-- [ ] Read: `plans/inbox/python-data-analysis-stack.md` — analysis pipeline plan
+- [ ] Step 3.0 complete
+- [ ] Read: `plans/learnings/step-3.0-data-quality.md` — prior step learnings
+- [ ] Read: `plans/inbox/python-data-analysis-stack.md` — full analysis plan
 
-**Reference**: Study the spring-ai-project-maint patterns before writing:
-- `/home/mark/tuvium/projects/spring-ai-project-maint/plans/DESIGN.md` — data model, DuckDB schema, design decisions
-- `/home/mark/tuvium/projects/spring-ai-project-maint/scripts/parse_git_history.py` — raw → parquet ETL pattern
-- `/home/mark/tuvium/projects/spring-ai-project-maint/scripts/compute_mvi.py` — DuckDB query → parquet output pattern
+**Reference** (patterns to follow):
+- `/home/mark/tuvium/projects/spring-ai-project-maint/scripts/parse_git_history.py` — raw → parquet ETL
+- `/home/mark/tuvium/projects/spring-ai-project-maint/scripts/compute_mvi.py` — DuckDB query → parquet
+- Pattern: plain Python, no CLI framework, `duckdb.connect()` in-process, `if __name__ == "__main__": main()`
 
 **Work items**:
-- [ ] CREATE `requirements.txt` in project root: `duckdb`, `pandas>=2.0`, `matplotlib>=3.7`, `numpy>=1.24`
-- [ ] CREATE Python venv: `uv venv && uv pip install -r requirements.txt`
-- [ ] CREATE directory structure: `data/curated/`, `analysis/figures/`, `analysis/tables/`, `analysis/cards/`
-- [ ] ADD `data/curated/` and `*.parquet` to `.gitignore`
-- [ ] WRITE `scripts/load_results.py` — ETL: read all `results/**/index.json` → normalize into:
-  - `data/curated/runs.parquet` (run_id, variant, model, timestamp, config)
-  - `data/curated/item_results.parquet` (per-item: coverage, scores, efficiency, cost, tokens)
-  - `data/curated/judge_scores.parquet` (per-criterion detail)
-  - Apply exclusion filters from Step 3.0 audit
-- [ ] VERIFY: run `scripts/load_results.py`, inspect parquet files with ad-hoc DuckDB queries
-- [ ] VERIFY: row counts match expected items per variant
+- [ ] CREATE `requirements.txt`: `duckdb`, `pandas>=2.0`, `matplotlib>=3.7`, `numpy>=1.24`
+- [ ] SETUP Python env: `uv venv && uv pip install -r requirements.txt`
+- [ ] CREATE directories: `data/curated/`, `analysis/figures/`, `analysis/tables/`, `analysis/cards/`
+- [ ] ADD to `.gitignore`: `data/curated/`, `*.parquet`, `.venv/`
+- [ ] WRITE `scripts/load_results.py` — ETL: read result JSON → normalize into 3 parquet files:
+
+  **`data/curated/runs.parquet`** — one row per variant run:
+  `run_id, variant, model, timestamp, pass_rate, total_cost_usd, total_duration_ms, item_count, run_group`
+
+  **`data/curated/item_results.parquet`** — one row per item per run:
+  `run_id, variant, item_slug, passed, cost_usd, duration_ms`
+  Coverage: `coverage_baseline, coverage_final, coverage_delta` (from `invocationResult.metadata`, parse string→float)
+  Scores: `t0_build, t1_preservation, t2_improvement, t3_adherence` (from `scores` map)
+  Efficiency: `eff_build_errors, eff_cost, eff_recovery_cycles, eff_composite` (nullable)
+  Golden: `golden_similarity` (nullable — only after re-run with golden judge)
+  Tokens: `input_tokens, output_tokens, thinking_tokens`
+
+  **`data/curated/judge_details.parquet`** — one row per judge criterion per item:
+  `run_id, item_slug, judge_name, criterion_name, score, evidence`
+  Extracted from `verdict.subVerdicts[].individual[].checks[]`
+
+  **Key field mappings**:
+  - `item.scores["CommandJudge"]` → `t0_build`
+  - `item.scores["CoveragePreservationJudge"]` → `t1_preservation`
+  - `item.scores["CoverageImprovementJudge"]` → `t2_improvement`
+  - `item.scores["Judge#1"]` → `t3_adherence`
+  - `item.scores["efficiency.composite"]` → `eff_composite`
+  - `item.invocationResult.metadata.finalCoverage` → `coverage_final`
+
+  **Run selection**: latest `index.json` entry per variant. Tag `run_group = "full-suite-2026-03-03"`.
+
+- [ ] VERIFY: run ETL, check parquet with `duckdb.sql("SELECT variant, count(*) FROM '...' GROUP BY variant")`
+- [ ] VERIFY: 5 items per variant, 20 total rows
 
 **Exit criteria**:
-- [ ] Python environment set up with all dependencies
-- [ ] `scripts/load_results.py` produces clean parquet files from result JSON
-- [ ] DuckDB can query parquet files (verify with simple SELECT)
+- [ ] Python environment working (`uv venv` + dependencies)
+- [ ] `scripts/load_results.py` produces 3 parquet files
+- [ ] DuckDB queries work against parquet
 - [ ] Create: `plans/learnings/step-3.1-etl.md`
-- [ ] Update `CLAUDE.md` with distilled learnings (Python env, run instructions)
+- [ ] Update `CLAUDE.md` with Python env + run instructions
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: Python environment, `scripts/load_results.py`, parquet files in `data/curated/`
+**Deliverables**: Python env, `scripts/load_results.py`, parquet files in `data/curated/`
 
 ---
 
-### Step 3.2: Variant Comparison and Thesis Queries
+### Step 3.2: Variant Comparison + Visualization
 
 **Entry criteria**:
 - [ ] Step 3.1 complete (parquet files available)
 - [ ] Read: `plans/learnings/step-3.1-etl.md` — prior step learnings
 
-**Reference**: Study visualization patterns:
+**Reference**:
 - `/home/mark/tuvium/projects/spring-ai-project-maint/scripts/plot_quadrants.py` — DuckDB → matplotlib
-- `/home/mark/tuvium/projects/spring-ai-project-maint/scripts/sensitivity_analysis.py` — weight sweep
 
 **Work items**:
 - [ ] WRITE `scripts/variant_comparison.py` — core ablation analysis:
-  - Per-variant aggregates: avg coverage gain, adherence, efficiency, cost, build success %
-  - Per-variant per-item breakdown
-  - Output: `analysis/tables/variant-comparison.md`
-- [ ] RUN thesis queries (conversational analysis workflow — tell Claude what to see, iterate):
-  - Q1: Does knowledge improve correctness? (coverage delta by variant)
-  - Q2: Does knowledge improve efficiency? (efficiency composite by variant)
-  - Q3: Does model matter less than knowledge? (expensive+no-KB vs cheap+full-KB)
-  - Q5: Where does knowledge help most? (per-item delta control vs variant-c)
-- [ ] WRITE `scripts/plot_variant_radar.py` — radar/spider chart: one polygon per variant showing correctness, adherence, efficiency
-- [ ] WRITE `scripts/plot_cost_vs_quality.py` — scatter: cost (x) vs coverage gain (y), colored by variant
-- [ ] GENERATE figures to `analysis/figures/`
+  - Per-variant aggregates: avg coverage gain, adherence, efficiency, cost, pass %
+  - Per-item breakdown pivoted by variant
+  - Output: `analysis/tables/variant-comparison.md` + stdout
+  - Key SQL:
+    ```sql
+    SELECT variant, AVG(coverage_delta), AVG(t3_adherence),
+           AVG(eff_composite), AVG(cost_usd),
+           SUM(CASE WHEN passed THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS pass_pct
+    FROM item_results GROUP BY variant ORDER BY variant;
+    ```
+- [ ] WRITE `scripts/plot_variant_radar.py` — radar/spider chart:
+  - One polygon per variant: correctness (coverage_delta/50, capped 1.0), adherence (t3), efficiency
+  - Matplotlib, DPI 150, tight layout, legend
+  - Output: `analysis/figures/variant-radar.png`
+- [ ] WRITE `scripts/generate_item_cards.py` — per-item detail cards:
+  - For each item × variant: coverage, all scores, efficiency, cost
+  - Output: `analysis/cards/{item_slug}.md`
+  - Useful for debugging gs-messaging-stomp-websocket failure
+- [ ] RUN all scripts, review outputs
 
 **Exit criteria**:
-- [ ] `analysis/tables/variant-comparison.md` — aggregate scores across all variants
-- [ ] `analysis/figures/variant-radar.png` — three-dimensional comparison
-- [ ] `analysis/figures/cost-vs-quality.png` — cost/quality tradeoff
-- [ ] Thesis queries answered with data (documented in analysis/)
+- [ ] `analysis/tables/variant-comparison.md` — aggregate scores
+- [ ] `analysis/figures/variant-radar.png` — three-dimension radar
+- [ ] `analysis/cards/*.md` — per-item detail cards
 - [ ] Create: `plans/learnings/step-3.2-variant-comparison.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: Variant comparison tables, radar charts, cost/quality plots, thesis query answers
+**Deliverables**: Variant comparison table, radar chart, item cards
 
 ---
 
-### Step 3.3: Growth Story and Sensitivity Analysis
+### Step 3.3: Stage 3 Consolidation
 
 **Entry criteria**:
-- [ ] Step 3.2 complete
-- [ ] Read: `plans/learnings/step-3.2-variant-comparison.md` — prior step learnings
-
-**Work items**:
-- [ ] WRITE `scripts/growth_story.py` — track improvement across iterations of the growth loop (run → judge → add knowledge → run again). Line chart showing scores over iterations.
-  - Q4: What's the growth loop trajectory? (iteration-over-iteration for variant-c)
-- [ ] WRITE `scripts/sensitivity_analysis.py` — vary efficiency weights, check if variant ordering is stable. Follow the spring-ai-project-maint pattern.
-- [ ] WRITE `scripts/generate_item_cards.py` — per-item detail cards (markdown): coverage before/after, judge scores, efficiency breakdown, agent trajectory summary
-- [ ] GENERATE cards to `analysis/cards/`
-- [ ] REVIEW item cards for outliers (items where variant-c underperformed control — why?)
-
-**Exit criteria**:
-- [ ] `analysis/figures/growth-trajectory.png` — iteration-over-iteration improvement
-- [ ] `analysis/tables/sensitivity.md` — weight sensitivity results
-- [ ] `analysis/cards/*.md` — per-item detail cards
-- [ ] Outlier analysis documented
-- [ ] Create: `plans/learnings/step-3.3-growth-sensitivity.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
-
-**Deliverables**: Growth trajectory chart, sensitivity analysis, per-item cards, outlier analysis
-
----
-
-### Step 3.4: Stage 3 Consolidation
-
-**Entry criteria**:
-- [ ] All Stage 3 steps complete (3.0–3.3)
+- [ ] All Stage 3 steps complete (3.0–3.2)
 - [ ] Read: all `plans/learnings/step-3.*` files from this stage
 
 **Work items**:
 - [ ] COMPACT learnings from Stage 3 into `plans/learnings/LEARNINGS.md`
-  - Data quality issues discovered and resolved
+  - Data quality issues (efficiency gap, metadata location)
   - ETL patterns (JSON → parquet → DuckDB)
-  - Key findings from variant comparison (hypothesis confirmed/refuted?)
+  - Key findings: prompt > KB for this dataset, ceiling effects, discriminator items
   - Conversational data science workflow observations
-  - Which visualizations were most useful for the narrative
 - [ ] UPDATE `CLAUDE.md` with distilled learnings
-- [ ] WRITE `analysis/findings-summary.md` — executive summary of all analysis findings
+- [ ] WRITE `analysis/findings-summary.md` — executive summary:
+  - Thesis result: hardened prompt > KB injection on simple Spring guides
+  - Diagnostic framework reading per dimension
+  - Next steps: harder targets, cross-model runs, golden judge re-run
 
 **Exit criteria**:
 - [ ] `LEARNINGS.md` updated with Stage 3 compacted summary
-- [ ] `analysis/findings-summary.md` — one-page summary of key findings
-- [ ] Create: `plans/learnings/step-3.4-stage3-summary.md`
+- [ ] `analysis/findings-summary.md` — one-page findings summary
+- [ ] Create: `plans/learnings/step-3.3-stage3-summary.md`
 - [ ] Update `CLAUDE.md` with distilled learnings
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
@@ -637,14 +629,12 @@ plans/learnings/
 ├── step-2.1-knowledge-injection.md
 ├── step-2.2a-pipeline-validation.md
 ├── step-2.2b-exhaust-capture.md
-├── step-2.2-control.md
-├── step-2.3-results.md
-├── step-2.4-stage2-summary.md
-├── step-3.0-data-audit.md
+├── step-2.2-full-suite.md
+├── step-2.3-stage2-summary.md
+├── step-3.0-data-quality.md
 ├── step-3.1-etl.md
 ├── step-3.2-variant-comparison.md
-├── step-3.3-growth-sensitivity.md
-├── step-3.4-stage3-summary.md
+├── step-3.3-stage3-summary.md
 └── step-4.0-graduation.md
 ```
 
@@ -704,3 +694,4 @@ Every step's exit criteria must include:
 | 2026-03-03 | Ran control (60% pass, 3/5) and variant-a (40% pass, 2/5) — zero exhaust data, can't diagnose failures | Initial variant runs |
 | 2026-03-03 | Added Step 2.2b: wire agent exhaust capture via SessionLogParser + consolidate PhaseCapture coordinates | Agent exhaust gap discovered |
 | 2026-03-03 | Replaced Stage 3 stubs with full data analysis pipeline (Steps 3.0-3.4) + Stage 4 graduation. Added Step 3.0 data audit for missing phases/efficiency/journal data. DuckDB + Python stack based on spring-ai-project-maint pattern. | Plan-to-roadmap from python-data-analysis-stack.md |
+| 2026-03-03 | Marked Stage 2 complete (full suite run done). Added Step 2.2c (golden judge). Consolidated Step 2.3/2.4 into 2.3. Replaced Stage 3 with detailed ETL + analysis steps. Step 3.0 = commit + efficiency gap. Step 3.1 = Python ETL. Step 3.2 = variant comparison + visualization. Step 3.3 = consolidation. | Post-full-suite-run analysis planning |

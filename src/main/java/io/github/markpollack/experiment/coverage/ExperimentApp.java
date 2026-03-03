@@ -201,6 +201,7 @@ public class ExperimentApp {
 			.addJudge(1, new CoveragePreservationJudge())
 			.tierPolicy(1, TierPolicy.REJECT_ON_ANY_FAIL)
 			.addJudge(2, new CoverageImprovementJudge())
+			.addJudge(2, new GoldenTestComparisonJudge())
 			.tierPolicy(2, TierPolicy.REJECT_ON_ANY_FAIL)
 			.addJudge(3, new TestQualityJudge(
 					TestQualityJudge.defaultAgentClientFactory("claude-sonnet-4-6", Duration.ofMinutes(3)),
