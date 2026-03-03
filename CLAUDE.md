@@ -146,7 +146,7 @@ For full details: `plans/learnings/LEARNINGS.md`
 ./mvnw compile exec:java -Dexec.args="--variant control --project-root /path/to/project"
 ```
 
-**Claude nesting workaround**: If you must run from within a Claude Code session, use `~/scripts/claude-run.sh` wrapper which uses `systemd-run` to escape process tree detection.
+**Claude nesting workaround**: If you must run from within a Claude Code session, use `~/scripts/claude-run-stream.sh` (real-time output via journalctl) or `~/scripts/claude-run.sh` (buffered output to file). Both use `systemd-run` to escape process tree detection.
 
 Results are written to `results/` directory as JSON. Workspaces are preserved under `results/<experiment>/<run-id>/workspaces/`.
 
