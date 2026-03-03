@@ -16,7 +16,7 @@ Agent experiment: improve JUnit test coverage on Spring Boot projects using AI a
 
 **Source of truth**: `plans/ROADMAP.md`
 
-**Current state**: Stage 1 steps 1.0–1.3 complete, prereq 1.4a complete, judge rubric written. Remaining: implement TestQualityJudge Java code (Step 1.4), then Stage 2 (variant execution).
+**Current state**: Stage 1 complete (Steps 1.0–1.4). TestQualityJudge implemented with 11 tests. Step 1.5 (consolidation) then Stage 2 (variant execution) are next.
 
 ## Architecture
 

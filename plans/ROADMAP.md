@@ -2,7 +2,7 @@
 
 > **Created**: 2026-03-01
 > **Last updated**: 2026-03-01
-> **Status**: Stage 1 in progress (Steps 1.0–1.3 complete, Prereq 1.4a complete, judge prompt written)
+> **Status**: Stage 1 in progress (Steps 1.0–1.4 complete, Step 1.5 consolidation next)
 
 ## Overview
 
@@ -128,37 +128,34 @@ Grow a code coverage improvement agent through 4 variants across 5 Spring Gettin
   - Each scored 0.0–1.0 with concrete anchors at 0.2/0.5/0.8/1.0
   - Companion traceability doc (`prompts/judge-practice-adherence-traceability.md`) maps criteria → source KB files
   - Refined: zero-tests escape hatch, N/A for absent domains, multi-file evidence format
-- [ ] IMPLEMENT `TestQualityJudge` implementing `Judge` directly:
-  - Constructor takes agent factory (functional interface), judge prompt path, pass threshold
-  - `judge()`: copy workspace to temp dir for isolation
-  - Check for test files; if none → `Judgment.fail()` score 0.0
-  - Load judge prompt, invoke agent with JSON-only output constraint
-  - Invoke agent synchronously (try/catch), use agent-level timeout if available
-  - Parse outermost `{...}` from agent output, clamp scores to [0.0, 1.0]
-  - Return `Judgment` with `Check` entries per criterion (practice adherence scores reported per-criterion, not combined)
-  - Functional correctness is handled by T0–T2 judges — TestQualityJudge only produces adherence scores
+- [x] IMPLEMENT `TestQualityJudge` implementing `Judge` directly:
+  - Constructor takes `Function<Path, AgentClient>` factory, judge prompt path, pass threshold
+  - Check for test files; if none → `Judgment.fail()` with `NumericalScore(0.0)`
+  - Load judge prompt, invoke agent via factory, parse outermost `{...}` from output
+  - Clamp scores to [0.0, 1.0], return `Judgment` with `Check` per criterion
   - Error handling: agent failure or unparseable output → `Judgment.error()`
-  - Clean up temp workspace copy
-  - Judge code is generic — criteria are in the prompt file, not in Java
-- [ ] WIRE UP `JuryFactory` to accept agent factory, register `TestQualityJudge` at Tier 3 with `FINAL_TIER` policy
-- [ ] WRITE unit test `TestQualityJudgeTest`:
-  - Mock agent factory → wire full fluent chain (`goal().workingDirectory().run()`)
-  - Verify correct score computation (criteria from mock agent JSON response)
-  - Verify no-test-files → FAIL with score 0.0
-  - Verify malformed agent output → ERROR (not uncaught exception)
-  - Verify agent exception → ERROR
-  - Verify score clamping for out-of-range values
-- [ ] VERIFY: `./mvnw compile` and `./mvnw test` pass
+  - Includes `defaultAgentClientFactory(model, timeout)` for read-only agent setup
+- [x] WIRE UP `JuryFactory`: builder already supports `addJudge(3, judge)` + `tierPolicy(3, FINAL_TIER)`. Wiring at bootstrap with `TestQualityJudge.defaultAgentClientFactory()`.
+- [x] WRITE unit test `TestQualityJudgeTest` (11 tests):
+  - Valid JSON → correct scores and PASS/FAIL status
+  - No test files → FAIL with score 0.0
+  - Malformed output / missing criteria / empty criteria → ERROR
+  - Out-of-range scores → clamped
+  - Agent exception → ERROR
+  - JSON embedded in text → extracted correctly
+  - Custom pass threshold → respected
+  - `parseJudgment()` directly testable (package-private)
+- [x] VERIFY: `./mvnw compile` and `./mvnw test` — 11 tests pass
 
 **Exit criteria**:
-- [ ] TestQualityJudge compiles and passes tests
-- [ ] All tests pass: `./mvnw test`
-- [ ] Create: `plans/learnings/step-1.4-test-quality-judge.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
+- [x] TestQualityJudge compiles and passes tests
+- [x] All tests pass: `./mvnw test`
+- [x] Create: `plans/learnings/step-1.4-test-quality-judge.md`
+- [x] Update `CLAUDE.md` with distilled learnings
+- [x] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 
-**Deliverables**: `TestQualityJudge.java`, `TestQualityJudgeTest.java`, updated `JuryFactory.java`
+**Deliverables**: `TestQualityJudge.java`, `TestQualityJudgeTest.java`
 
 ---
 
@@ -373,3 +370,4 @@ Every step's exit criteria must include:
 | 2026-03-02 | Judge design v5 — criteria derived from KB (not hardcoded); KB as forkable policy layer; diagnostic feedback loop; thesis sharpened to "knowledge + orchestration > model"; cross-model follow-on planned | Online review session + AIAnalyzer pattern |
 | 2026-03-02 | Pre-flight review: split scoring (functional + adherence, never combined); "practice adherence" framing; thesis as hypothesis under investigation; planned iterations (Pet Clinic, cross-model, SWE-bench) | Pre-flight validity review |
 | 2026-03-02 | Judge rubric authored: 6 criteria distilled from 13 KB files into `prompts/judge-practice-adherence.txt` + traceability doc. Refined with zero-tests escape, N/A domains, evidence format. | Rubric authoring session |
+| 2026-03-02 | Step 1.4 complete: TestQualityJudge implemented (11 tests passing), JuryFactory wiring ready, learnings captured | Implementation session |
