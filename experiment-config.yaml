@@ -1,6 +1,6 @@
 experimentName: code-coverage-experiment
 defaultModel: claude-sonnet-4-6
-timeoutMinutes: 15
+timeoutMinutes: 45
 variants:
   - name: control
     promptFile: v0-naive.txt

@@ -262,7 +262,7 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 	}
 
 	protected CoverageMetrics measureCoverage(Path workspace) {
-		BuildResult result = MavenBuildRunner.runBuild(workspace, 10, "clean", "test");
+		BuildResult result = MavenBuildRunner.runBuild(workspace, 10, "clean", "test", "jacoco:report");
 		if (result.success()) {
 			return JaCoCoReportParser.parse(workspace);
 		}

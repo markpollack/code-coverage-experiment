@@ -114,10 +114,12 @@ public class ExperimentApp {
 
 		ExperimentResult result = runner.run(invoker, activeSession);
 
-		logger.info("Variant '{}' complete: passRate={}, cost=${}",
-				variant.name(),
-				String.format("%.1f%%", result.passRate() * 100),
-				String.format("%.4f", result.totalCostUsd()));
+		logger.info("========================================");
+		logger.info("  VARIANT '{}' COMPLETE", variant.name());
+		logger.info("  Pass rate: {}", String.format("%.1f%%", result.passRate() * 100));
+		logger.info("  Cost: ${}", String.format("%.4f", result.totalCostUsd()));
+		logger.info("  Duration: {}s", result.totalDurationMs() / 1000);
+		logger.info("========================================");
 
 		return result;
 	}
