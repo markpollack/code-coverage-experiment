@@ -54,7 +54,8 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 		long startTime = System.currentTimeMillis();
 		Path workspace = context.workspacePath();
 
-		logger.info("=== Coverage Agent: {} ===", workspace.getFileName());
+		String itemSlug = context.metadata().getOrDefault("itemId", workspace.getFileName().toString());
+		logger.info("=== Coverage Agent: {} ===", itemSlug);
 
 		// 1. Verify baseline builds
 		logger.info("Step 1: Verifying project compiles");

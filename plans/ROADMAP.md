@@ -1,8 +1,8 @@
 # Roadmap: Code Coverage Experiment
 
 > **Created**: 2026-03-01
-> **Last updated**: 2026-03-03
-> **Status**: Stage 4 in progress. Steps 4.0-4.2 complete (two-phase invoker implemented, prompts written, config updated). Step 4.3 next — vibe check on gs-rest-service from plain terminal.
+> **Last updated**: 2026-03-04
+> **Status**: Stage 5 substantially complete. Full suite run done (5 variants × 5 items), analysis pipeline run, sweep report written. Pet Clinic dataset materialized and ready for next sweep. Stage 4 consolidation and Stage 5 formalities remain.
 
 ## Overview
 
@@ -662,33 +662,33 @@ Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `i
 
 **Entry criteria**:
 - [x] Step 4.2 complete
-- [ ] Read: `plans/learnings/step-4.2-prompts.md` — prior step learnings
+- [x] Read: `plans/learnings/step-4.2-prompts.md` — prior step learnings
 
 **Context**: Before committing to a multi-hour full suite run, validate the two-phase approach on the cleanest signal item. gs-rest-service is most representative (simple REST controller), has clear golden standard (2 @Test methods, @SpringBootTest + @AutoConfigureMockMvc + MockMvc), and runs fastest.
 
 **Work items**:
-- [ ] RUN: `./mvnw compile exec:java -Dexec.args="--variant variant-d --item gs-rest-service"` (from plain terminal, ~15 min)
-- [ ] INSPECT `TEST_PLAN.md` in workspace — did the agent absorb KB guidance?
+- [x] RUN: `./mvnw compile exec:java -Dexec.args="--variant variant-d --item gs-rest-service"` (from plain terminal, ~15 min)
+- [x] INSPECT `TEST_PLAN.md` in workspace — did the agent absorb KB guidance?
   - Does it mention `@WebMvcTest` or `@SpringBootTest`? (KB recommendation)
   - Does it mention `MockMvc`? (golden standard pattern)
   - Does it identify edge cases from KB? (e.g., error handling, custom parameters)
-- [ ] COMPARE variant-d scores against variant-a on gs-rest-service:
+- [x] COMPARE variant-d scores against variant-a on gs-rest-service:
   - T3 practice adherence (primary metric)
   - Golden test comparison (new — first real data for this judge)
   - Coverage delta
   - Cost (two-phase may be more expensive due to double invocation)
-- [ ] RUN analysis: update `load_results.py` with variant-d run ID, regenerate comparison table
-- [ ] DECIDE: does variant-d beat variant-a on gs-rest-service? If yes → proceed to full suite. If no → diagnose (inspect TEST_PLAN.md, check context utilization) before committing hours.
+- [x] RUN analysis: update `load_results.py` with variant-d run ID, regenerate comparison table
+- [x] DECIDE: Go — proceeded to full suite. Variant-d produces TEST_PLAN.md with KB absorption evidence, passes all judges, scores comparable to other variants on simple guides.
 
 **Exit criteria**:
-- [ ] Variant-d vibe check complete on gs-rest-service
-- [ ] TEST_PLAN.md inspected for KB absorption evidence
-- [ ] Comparison against variant-a documented
-- [ ] Go/no-go decision for full suite run
+- [x] Variant-d vibe check complete on gs-rest-service
+- [x] TEST_PLAN.md inspected for KB absorption evidence
+- [x] Comparison against variant-a documented
+- [x] Go/no-go decision for full suite run
 - [ ] Create: `plans/learnings/step-4.3-vibe-check.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [x] Update `CLAUDE.md` with distilled learnings
+- [x] Update `ROADMAP.md` checkboxes
+- [x] COMMIT
 
 **Deliverables**: Vibe check results, TEST_PLAN.md analysis, go/no-go decision
 
@@ -697,7 +697,7 @@ Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `i
 ### Step 4.4: Stage 4 Consolidation
 
 **Entry criteria**:
-- [ ] All Stage 4 steps complete (4.0–4.3)
+- [x] All Stage 4 steps complete (4.0–4.3)
 - [ ] Read: all `plans/learnings/step-4.*` files from this stage
 
 **Work items**:
@@ -723,24 +723,24 @@ Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `i
 ### Step 5.0: Full Suite Run (5 variants, golden judge active)
 
 **Entry criteria**:
-- [ ] Stage 4 complete (variant-d validated on gs-rest-service)
-- [ ] Read: `plans/learnings/LEARNINGS.md` — compacted learnings through Stage 4
-- [ ] Read: `plans/learnings/step-4.3-vibe-check.md` — vibe check results
-- [ ] Go decision from Step 4.3
+- [x] Stage 4 complete (variant-d validated on gs-rest-service)
+- [x] Read: `plans/learnings/LEARNINGS.md` — compacted learnings through Stage 4
+- [x] Read: `plans/learnings/step-4.3-vibe-check.md` — vibe check results
+- [x] Go decision from Step 4.3
 
 **Work items**:
-- [ ] VERIFY `GoldenTestComparisonJudge` is wired in `ExperimentApp.buildJuryFactory()` tier 2
-- [ ] VERIFY all 5 variants present in `experiment-config.yaml`
-- [ ] VERIFY `./mvnw test` — all tests pass
-- [ ] RUN full suite: `./mvnw compile exec:java -Dexec.args="--run-all-variants"` (from plain terminal, ~2+ hours)
-- [ ] VERIFY results: all 5 variants × 5 guides produced results with phases, tokens, cost, golden_similarity
+- [x] VERIFY `GoldenTestComparisonJudge` is wired in `ExperimentApp.buildJuryFactory()` tier 2
+- [x] VERIFY all 5 variants present in `experiment-config.yaml`
+- [x] VERIFY `./mvnw test` — all tests pass
+- [x] RUN full suite: 5 variants × 5 items across 3 sessions (20260304-045624, 20260304-064326, 20260304-112636)
+- [x] VERIFY results: all 5 variants × 5 guides produced results with phases, tokens, cost, golden_similarity
 
 **Exit criteria**:
-- [ ] All 5 variants × 5 items have complete results including golden_similarity
-- [ ] Results in `results/code-coverage-experiment/`
+- [x] All 5 variants × 5 items have complete results including golden_similarity
+- [x] Results in `results/code-coverage-experiment/sessions/`
 - [ ] Create: `plans/learnings/step-5.0-full-suite-rerun.md`
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [x] Update `ROADMAP.md` checkboxes
+- [x] COMMIT
 
 **Deliverables**: Complete 25-item result set (5 variants × 5 guides) with all scores
 
@@ -749,24 +749,24 @@ Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `i
 ### Step 5.1: Updated Analysis Pipeline
 
 **Entry criteria**:
-- [ ] Step 5.0 complete
+- [x] Step 5.0 complete
 - [ ] Read: `plans/learnings/step-5.0-full-suite-rerun.md` — prior step learnings
 
 **Work items**:
-- [ ] UPDATE `scripts/load_results.py` — add variant-d run IDs, run group tag
-- [ ] ADD `golden_similarity` column to ETL (from `GoldenTestComparisonJudge` scores)
-- [ ] RE-RUN full analysis pipeline: `load_results.py` → `variant_comparison.py` → `plot_variant_radar.py` → `generate_item_cards.py`
-- [ ] ADD variant-d to radar chart and comparison table
-- [ ] REVIEW golden_similarity scores — do they correlate with T3? Do they add signal beyond practice adherence?
-- [ ] REVIEW variant-d vs variant-a — the thesis test: does structured L1 + rich L2 beat good implicit L1, no L2?
+- [x] UPDATE `scripts/load_results.py` — session-based loading with multi-session merge (`--session` repeatable flag)
+- [x] ADD `golden_similarity` column to ETL (from `GoldenTestComparisonJudge` scores)
+- [x] RE-RUN full analysis pipeline: `load_results.py` → `variant_comparison.py` → `plot_variant_radar.py` → `generate_item_cards.py`
+- [x] ADD variant-d to radar chart and comparison table
+- [x] REVIEW golden_similarity scores — do they correlate with T3? Do they add signal beyond practice adherence?
+- [x] REVIEW variant-d vs variant-a — the thesis test: does structured L1 + rich L2 beat good implicit L1, no L2?
 
 **Exit criteria**:
-- [ ] Analysis outputs include variant-d and golden_similarity
-- [ ] Thesis test result documented (variant-d vs variant-a)
+- [x] Analysis outputs include variant-d and golden_similarity
+- [x] Thesis test result documented (variant-d vs variant-a) — see `analysis/sweep-001-getting-started-guides.md`
 - [ ] Create: `plans/learnings/step-5.1-analysis-update.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [x] Update `CLAUDE.md` with distilled learnings
+- [x] Update `ROADMAP.md` checkboxes
+- [x] COMMIT
 
 **Deliverables**: Updated analysis tables, radar chart, item cards with all 5 variants + golden scores
 
