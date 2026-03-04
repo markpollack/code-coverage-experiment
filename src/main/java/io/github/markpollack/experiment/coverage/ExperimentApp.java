@@ -6,6 +6,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,10 +22,14 @@ import ai.tuvium.experiment.dataset.FileSystemDatasetManager;
 import ai.tuvium.experiment.result.ExperimentResult;
 import ai.tuvium.experiment.runner.ExperimentConfig;
 import ai.tuvium.experiment.runner.ExperimentRunner;
+import ai.tuvium.experiment.store.ActiveSession;
 import ai.tuvium.experiment.store.FileSystemResultStore;
+import ai.tuvium.experiment.store.FileSystemSessionStore;
 import ai.tuvium.experiment.store.ResultStore;
+import ai.tuvium.experiment.store.SessionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.lang.Nullable;
 import org.springaicommunity.judge.coverage.CoverageImprovementJudge;
 import org.springaicommunity.judge.coverage.CoveragePreservationJudge;
 import org.springaicommunity.judge.exec.BuildSuccessJudge;
@@ -46,11 +53,16 @@ public class ExperimentApp {
 
 	private static final Logger logger = LoggerFactory.getLogger(ExperimentApp.class);
 
+	private static final DateTimeFormatter SESSION_NAME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+		.withZone(ZoneOffset.UTC);
+
 	private final ExperimentVariantConfig variantConfig;
 
 	private final JuryFactory juryFactory;
 
 	private final ResultStore resultStore;
+
+	private final SessionStore sessionStore;
 
 	private final ComparisonEngine comparisonEngine;
 
@@ -59,26 +71,27 @@ public class ExperimentApp {
 	private final Path projectRoot;
 
 	public ExperimentApp(ExperimentVariantConfig variantConfig, JuryFactory juryFactory,
-			ResultStore resultStore, Path projectRoot) {
+			ResultStore resultStore, SessionStore sessionStore, Path projectRoot) {
 		this.variantConfig = variantConfig;
 		this.juryFactory = juryFactory;
 		this.resultStore = resultStore;
+		this.sessionStore = sessionStore;
 		this.comparisonEngine = new DefaultComparisonEngine(resultStore);
 		this.reporter = new GrowthStoryReporter(projectRoot.resolve("analysis"));
 		this.projectRoot = projectRoot;
 	}
 
 	/**
-	 * Run a single variant experiment.
+	 * Run a single variant experiment within a session.
 	 */
-	public ExperimentResult runVariant(VariantSpec variant) {
-		logger.info("Running variant: {}", variant.name());
+	public ExperimentResult runVariant(VariantSpec variant, String sessionName) {
+		logger.info("Running variant: {} (session: {})", variant.name(), sessionName);
 
 		Jury jury = juryFactory.build(variant);
 		AbstractCoverageAgentInvoker invoker = createInvoker(variant);
 
 		ExperimentConfig config = ExperimentConfig.builder()
-			.experimentName(variantConfig.experimentName() + "/" + variant.name())
+			.experimentName(variantConfig.experimentName())
 			.datasetDir(projectRoot.resolve("dataset"))
 			.promptTemplate(loadPrompt(variant))
 			.model(variantConfig.defaultModel())
@@ -94,9 +107,12 @@ public class ExperimentApp {
 				: variantConfig.datasetManager();
 
 		ExperimentRunner runner = new ExperimentRunner(
-				datasetManager, jury, resultStore, config);
+				datasetManager, jury, resultStore, sessionStore, config);
 
-		ExperimentResult result = runner.run(invoker);
+		ActiveSession activeSession = new ActiveSession(
+				sessionName, variantConfig.experimentName(), variant.name());
+
+		ExperimentResult result = runner.run(invoker, activeSession);
 
 		logger.info("Variant '{}' complete: passRate={}, cost=${}",
 				variant.name(),
@@ -107,16 +123,21 @@ public class ExperimentApp {
 	}
 
 	/**
-	 * Run all variants in sequence, comparing each against the previous.
+	 * Run all variants in sequence within a single session.
 	 */
 	public void runAllVariants() {
 		List<VariantSpec> variants = variantConfig.variants();
-		logger.info("Running {} variants for experiment '{}'", variants.size(), variantConfig.experimentName());
+		String sessionName = SESSION_NAME_FORMAT.format(Instant.now());
+
+		logger.info("Running {} variants for experiment '{}' (session: {})",
+				variants.size(), variantConfig.experimentName(), sessionName);
+
+		sessionStore.createSession(sessionName, variantConfig.experimentName(), Map.of());
 
 		ExperimentResult previousResult = null;
 
 		for (VariantSpec variant : variants) {
-			ExperimentResult result = runVariant(variant);
+			ExperimentResult result = runVariant(variant, sessionName);
 
 			if (previousResult != null) {
 				ComparisonResult comparison = comparisonEngine.compare(result, previousResult);
@@ -295,10 +316,12 @@ public class ExperimentApp {
 				config.defaultModel(), config.timeoutMinutes());
 
 		// Wire components
-		ResultStore resultStore = new FileSystemResultStore(projectRoot.resolve("results"));
+		Path resultsDir = projectRoot.resolve("results");
+		ResultStore resultStore = new FileSystemResultStore(resultsDir);
+		SessionStore sessionStore = new FileSystemSessionStore(resultsDir);
 		JuryFactory juryFactory = buildJuryFactory(projectRoot);
 
-		ExperimentApp app = new ExperimentApp(config, juryFactory, resultStore, projectRoot);
+		ExperimentApp app = new ExperimentApp(config, juryFactory, resultStore, sessionStore, projectRoot);
 
 		// Dispatch
 		if (runAll) {
@@ -312,7 +335,11 @@ public class ExperimentApp {
 				.orElseThrow(() -> new IllegalArgumentException(
 						"Unknown variant: " + variantName + ". Available: "
 								+ config.variants().stream().map(VariantSpec::name).toList()));
-			app.runVariant(variant);
+
+			// Single-variant run also uses a session for consistent layout
+			String sessionName = SESSION_NAME_FORMAT.format(Instant.now());
+			sessionStore.createSession(sessionName, config.experimentName(), Map.of());
+			app.runVariant(variant, sessionName);
 		}
 	}
 
