@@ -11,7 +11,7 @@
     <description>Standard agent experiment project with pre-wired experiment loop</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>21</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -20,7 +20,7 @@
         <experiment-core.version>0.1.0-SNAPSHOT</experiment-core.version>
         <agent-judge.version>0.9.0-SNAPSHOT</agent-judge.version>
         <agent-client.version>0.10.0-SNAPSHOT</agent-client.version>
-        <jackson.version>2.17.2</jackson.version>
+        <jackson.version>2.20.0</jackson.version>
         <snakeyaml.version>2.2</snakeyaml.version>
         <slf4j.version>2.0.13</slf4j.version>
         <logback.version>1.5.6</logback.version>
@@ -79,6 +79,13 @@
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
+        <!-- Loopy agent (lightweight Claude agent for cost-efficient variants) -->
+        <dependency>
+            <groupId>io.github.markpollack</groupId>
+            <artifactId>loopy</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- AST parsing for golden test comparison -->
         <dependency>
             <groupId>com.github.javaparser</groupId>
@@ -93,7 +100,17 @@
             <version>${snakeyaml.version}</version>
         </dependency>
 
-        <!-- JSON -->
+        <!-- JSON — pin all Jackson core modules to override transitive 2.17.x -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>2.20</version>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>

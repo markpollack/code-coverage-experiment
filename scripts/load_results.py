@@ -151,6 +151,56 @@ def extract_item_results(results: dict[str, dict]) -> list[dict]:
     return rows
 
 
+def extract_tool_uses(results: dict[str, dict]) -> list[dict]:
+    """Extract per-tool-use rows from phase data for agent behavior analysis."""
+    rows = []
+    for variant, data in results.items():
+        run_id = data["experimentId"]
+        for item in data["items"]:
+            inv = item.get("invocationResult", {})
+            global_seq = 0
+            for phase in inv.get("phases", []):
+                phase_name = phase.get("phaseName", "unknown")
+                phase_turns = phase.get("numTurns", 0)
+                phase_duration_ms = phase.get("durationMs", 0)
+                for i, tool in enumerate(phase.get("toolUses", [])):
+                    tool_input = tool.get("input", {})
+                    # Extract a human-readable summary of what the tool operated on
+                    target = _tool_target(tool["name"], tool_input)
+                    rows.append({
+                        "run_id": run_id,
+                        "variant": variant,
+                        "item_slug": item["itemSlug"],
+                        "phase_name": phase_name,
+                        "phase_seq": i,
+                        "global_seq": global_seq,
+                        "tool_name": tool["name"],
+                        "target": target,
+                        "phase_turns": phase_turns,
+                        "phase_duration_ms": phase_duration_ms,
+                    })
+                    global_seq += 1
+    return rows
+
+
+def _tool_target(tool_name: str, tool_input: dict) -> str:
+    """Extract a short human-readable target from tool input."""
+    if tool_name in ("Read", "Write", "Edit", "Glob"):
+        path = tool_input.get("file_path", tool_input.get("path", ""))
+        # Keep just filename or last 2 path segments
+        parts = path.rstrip("/").split("/")
+        return "/".join(parts[-2:]) if len(parts) > 1 else path
+    if tool_name == "Bash":
+        cmd = tool_input.get("command", "")
+        return cmd[:80]
+    if tool_name == "Grep":
+        pattern = tool_input.get("pattern", "")
+        return f"/{pattern}/"[:60]
+    if tool_name == "TodoWrite":
+        return "todos"
+    return ""
+
+
 def extract_judge_details(results: dict[str, dict]) -> list[dict]:
     rows = []
     for variant, data in results.items():
@@ -223,25 +273,54 @@ def main():
 
     CURATED_DIR.mkdir(parents=True, exist_ok=True)
 
+    results = {}
+
+    def merge_variant(variant: str, data: dict, source: str):
+        """Merge variant data at the item level — later items override by slug, new slugs are added."""
+        if variant not in results:
+            results[variant] = data
+            print(f"  {variant}: {len(data['items'])} items ({source})")
+            return
+        # Item-level merge: index existing items by slug
+        existing = results[variant]
+        item_map = {item["itemSlug"]: item for item in existing["items"]}
+        new_slugs = []
+        for item in data["items"]:
+            slug = item["itemSlug"]
+            if slug not in item_map:
+                new_slugs.append(slug)
+            item_map[slug] = item
+        existing["items"] = list(item_map.values())
+        # Update aggregate stats
+        items = existing["items"]
+        existing["passRate"] = sum(1 for i in items if i["passed"]) / len(items) if items else 0
+        existing["totalCostUsd"] = sum(i["costUsd"] for i in items)
+        existing["totalDurationMs"] = sum(i.get("durationMs", 0) for i in items)
+        print(f"  {variant}: +{len(data['items'])} items ({source})"
+              f" → {len(items)} total" + (f" (new: {new_slugs})" if new_slugs else ""))
+
+    # Load legacy (Sonnet full-suite) if requested
     if args.legacy:
         print(f"Loading legacy results from {RESULTS_DIR}")
-        run_group = "full-suite-2026-03-03"
-        results = load_legacy_results()
-    elif args.sessions:
-        # Merge multiple sessions, last-write-wins per variant
-        results = {}
+        legacy = load_legacy_results()
+        for variant, data in legacy.items():
+            merge_variant(variant, data, "legacy")
+
+    # Load session(s) — additive with legacy, item-level merge per variant
+    if args.sessions:
         for session_name in args.sessions:
             print(f"Loading session: {session_name}")
             session_results = load_session_results(session_name)
             for variant, data in session_results.items():
-                results[variant] = data
-                print(f"  {variant}: {len(data['items'])} items (from {session_name})")
-        run_group = f"session-{args.sessions[-1]}"
-    else:
+                merge_variant(variant, data, session_name)
+
+    # Default: load latest session if nothing else specified
+    if not args.legacy and not args.sessions:
         session_name = find_latest_session()
         print(f"Loading session: {session_name}")
-        run_group = f"session-{session_name}"
         results = load_session_results(session_name)
+
+    run_group = f"session-{args.sessions[-1]}" if args.sessions else "full-suite-2026-03-03"
 
     model = "claude-sonnet-4-6"
     variants = sorted(results.keys())
@@ -257,6 +336,9 @@ def main():
 
     item_results = extract_item_results(results)
     write_parquet(item_results, "item_results", CURATED_DIR / "item_results.parquet")
+
+    tool_uses = extract_tool_uses(results)
+    write_parquet(tool_uses, "tool_uses", CURATED_DIR / "tool_uses.parquet")
 
     judge_details = extract_judge_details(results)
     write_parquet(judge_details, "judge_details", CURATED_DIR / "judge_details.parquet")

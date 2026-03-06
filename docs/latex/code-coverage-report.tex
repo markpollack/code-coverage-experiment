@@ -82,9 +82,17 @@ operates in a fresh workspace with the project source, a prompt, and optionally
 a set of domain knowledge files. It has full tool access: file reading/writing,
 shell execution (compilation, test runs), and iterative repair.
 
-The agent is Claude Sonnet 4.6 invoked via the Claude Code SDK. Each invocation
-is a self-contained session: the agent reads the project, writes tests, compiles,
-runs, checks coverage, and iterates until satisfied or the timeout expires.
+The agent is Claude Sonnet 4.6. Single-phase variants (control through variant-c)
+are invoked via \texttt{AgentClient} from the Spring AI Claude Agent library,
+which provides a one-shot request--response pattern. Two-phase variant-d uses
+\texttt{ClaudeSyncClient} from the Claude Agent SDK Java directly, because
+\texttt{AgentClient} does not support session continuity --- variant-d needs
+the explore phase's context preserved in memory for the act phase, which requires
+two turns within the same Claude Code session.
+
+In all cases, each invocation is self-contained: the agent reads the project,
+writes tests, compiles, runs, checks coverage, and iterates until satisfied
+or the timeout expires.
 
 \subsection{Variants}
 
@@ -196,8 +204,10 @@ higher tiers do not execute.
 
 \subsection{Agent Execution and Capture}
 
-Each agent invocation is captured via the Claude Code SDK session log.
-The captured exhaust includes:
+Each agent invocation is captured via session log parsing (\texttt{SessionLogParser}
+from the agent-journal library). Both \texttt{AgentClient} and \texttt{ClaudeSyncClient}
+produce structured session logs that are parsed into a common \texttt{PhaseCapture}
+record. The captured exhaust includes:
 
 \begin{itemize}
   \item \textbf{Tool calls}: every file read, write, edit, glob, grep, and bash command
@@ -208,9 +218,11 @@ The captured exhaust includes:
   \item \textbf{Phase count}: 1 for single-phase variants, 2 for variant-d (explore + act)
 \end{itemize}
 
-For two-phase variant-d, both phases run in the same Claude Code session ---
-the explore phase's context is preserved for the act phase. Each phase's
-exhaust is captured separately.
+For two-phase variant-d, both phases run in the same \texttt{ClaudeSyncClient}
+session --- \texttt{client.connect(explorePrompt)} followed by
+\texttt{client.query(actPrompt)}. The explore phase's full context (tool
+results, reasoning) is preserved in the session for the act phase.
+Each phase's exhaust is captured separately via \texttt{SessionLogParser.parse()}.
 
 \subsection{Dataset}
 

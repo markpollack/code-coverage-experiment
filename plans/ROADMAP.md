@@ -2,7 +2,7 @@
 
 > **Created**: 2026-03-01
 > **Last updated**: 2026-03-04
-> **Status**: Stage 5 substantially complete. Full suite run done (5 variants × 5 items), analysis pipeline run, sweep report written. Pet Clinic dataset materialized and ready for next sweep. Stage 4 consolidation and Stage 5 formalities remain.
+> **Status**: Stage 7 in progress. Loopy agent framework integrated (Haiku + Qwen3-Coder variants). Haiku smoke test passed ($1.29, gs-rest-service). Qwen running. Full-suite Haiku + Qwen runs next. Stages 1-5 done, Stage 6 (Pet Clinic) deferred in favor of cross-model story for DevNexus talk.
 
 ## Overview
 
@@ -1010,73 +1010,118 @@ Also discovered: `com.tuvium:claude-sdk-capture` (experiment-core) duplicates `i
 
 ---
 
-## Stage 7: Cross-Model Comparison + Graduation
+## Stage 7: Cross-Model & Cross-Framework Comparison
 
-### Step 7.0: Cross-Model Variant
+**Goal**: Shape the DevNexus talk narrative by comparing cost, model, and framework axes. Three questions: (1) Does the prompt matter more than the model? (2) Can Haiku at 1/40th the cost match Sonnet? (3) Can a free local model (Qwen) do the job?
 
-**Entry criteria**:
-- [ ] Stage 6 complete
-- [ ] Read: `plans/learnings/LEARNINGS.md` — compacted learnings through Stage 6
-- [ ] Best variant identified from Pet Clinic sweep
+### Step 7.0: Loopy Framework Integration
 
-**Context**: The ultimate thesis test — does `Haiku + KB + structured execution` beat `Sonnet/Opus + no KB`? This transforms "knowledge helps" into "knowledge + cheap model beats expensive model."
+**Status**: Complete
 
-**Work items**:
-- [ ] CONFIGURE cross-model variants in experiment-config.yaml (Haiku + variant-d, Opus + control)
-- [ ] RUN cross-model comparison on gs-rest-service first (vibe check)
-- [ ] IF promising → run on full suite + Pet Clinic
-- [ ] ANALYZE cost-vs-quality: Haiku+KB cost vs Sonnet/Opus cost with equivalent quality
+**Deliverables**:
+- [x] `LoopyCoverageAgentInvoker` — single-phase invoker using Loopy's programmatic API
+- [x] `LoopyAgent.builder().disabledTools()` — tool exclusion for headless use (Task tool disabled)
+- [x] Custom `baseUrl` + `apiKey` support for LM Studio / compatible endpoints
+- [x] HTTP/1.1 workaround for non-Anthropic endpoints
+- [x] Case-insensitive tool resolver + error-tolerant exception processor in MiniAgent
+- [x] TodoWrite bare-array deserializer fix in agent-utils 0.5.0-SNAPSHOT
+- [x] `v1-hardened-qwen.txt` prompt with tool formatting hints
 
-**Exit criteria**:
-- [ ] Cross-model comparison data collected
-- [ ] Cost-vs-quality analysis documented
-- [ ] Create: `plans/learnings/step-7.0-cross-model.md`
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
-
-**Deliverables**: Cross-model comparison results, cost-quality analysis
+**Learnings**: Small/open models need significant resilience: wrong tool names (Bash vs bash), hallucinated tools (LS), malformed JSON args, subagent spawning with wrong cwd. Task tool must be disabled for headless runs — subagent tools don't inherit workingDirectory.
 
 ---
 
-### Step 7.1: Graduate Best Variant
+### Step 7.1: Loopy+Haiku Full Suite
+
+**Status**: Smoke test passed (gs-rest-service, $1.29). Full suite not yet run.
 
 **Entry criteria**:
-- [ ] Step 7.0 complete (or at minimum Stage 6 thesis validation done)
+- [x] Step 7.0 complete
+- [x] Haiku smoke test passes on gs-rest-service
 
 **Work items**:
-- [ ] EXTRACT best variant → standalone agent project
-- [ ] PACKAGE for ACP marketplace (deferred)
-- [ ] DOCUMENT the final configuration that won
+- [ ] RUN `loopy-haiku` on all 5 Spring guide items
+- [ ] VERIFY results — check pass rate, coverage metrics, cost
+- [ ] COMPARE with variant-a (Sonnet, same prompt): quality vs cost tradeoff
 
 **Exit criteria**:
-- [ ] Best variant extracted as standalone project
-- [ ] Create: `plans/learnings/step-7.1-graduation.md`
-- [ ] Update `CLAUDE.md` with distilled learnings
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [ ] 5-item run complete with results in `results/`
+- [ ] Cost comparison documented: Haiku ($X) vs Sonnet ($4.17 from Stage 3)
 
-**Deliverables**: Standalone agent project from best variant
+**Run command** (from plain terminal):
+```bash
+./mvnw compile exec:java -Dexec.args="--variant loopy-haiku" 2>&1 | tee results/loopy-haiku-full.log
+```
 
 ---
 
-### Step 7.2: Stage 7 Consolidation
+### Step 7.2: Loopy+Qwen3-Coder Runs
+
+**Status**: In progress — gs-rest-service running.
 
 **Entry criteria**:
-- [ ] All Stage 7 steps complete
-- [ ] Read: all `plans/learnings/step-7.*` files
+- [x] Step 7.0 complete
+- [x] LM Studio running Qwen3-Coder-30B on rutherford
 
 **Work items**:
-- [ ] COMPACT learnings from Stage 7 into `plans/learnings/LEARNINGS.md`
-- [ ] WRITE final experiment report: `analysis/experiment-report.md`
+- [ ] COMPLETE gs-rest-service run successfully
+- [ ] RUN on 2-3 additional items (prioritize gs-accessing-data-jpa, gs-securing-web)
+- [ ] DOCUMENT: token counts, wall-clock time, pass/fail, qualitative observations
 
 **Exit criteria**:
-- [ ] `LEARNINGS.md` covers all stages
-- [ ] Final experiment report written
-- [ ] Create: `plans/learnings/step-7.2-stage7-summary.md`
-- [ ] Update `ROADMAP.md` checkboxes
-- [ ] COMMIT
+- [ ] At least 1 successful Qwen run with coverage data
+- [ ] Comparison notes: Qwen behavior vs Haiku vs Sonnet
 
-**Deliverables**: Complete `LEARNINGS.md`, final experiment report
+**Run command** (from plain terminal):
+```bash
+./mvnw compile exec:java -Dexec.args="--variant loopy-qwen3-coder --item gs-rest-service" 2>&1 | tee results/qwen-gs-rest.log
+```
+
+---
+
+### Step 7.3: Loopy+Sonnet (Optional — Framework Isolation)
+
+**Status**: Not started
+
+**Context**: Isolates the framework effect. Same model (Sonnet), same prompt (v1-hardened), different agent harness (Claude Code vs Loopy). Answers: "Does Claude Code's tooling make a difference?"
+
+**Work items**:
+- [ ] ADD `loopy-sonnet` variant to experiment-config.yaml
+- [ ] RUN on gs-rest-service (smoke test)
+- [ ] IF interesting → run on full suite
+- [ ] COMPARE with variant-a (Claude Code + Sonnet + v1-hardened)
+
+---
+
+### Step 7.4: Analysis & Talk Narrative
+
+**Status**: Not started
+
+**Entry criteria**:
+- [ ] Steps 7.1 and 7.2 complete (at minimum)
+
+**Work items**:
+- [ ] UPDATE `load_results.py` ETL to handle Loopy variant results
+- [ ] ADD cross-model comparison table to `make_tables.py`
+- [ ] GENERATE cost-vs-quality chart (scatter: cost on X, T3 score on Y, bubble = pass rate)
+- [ ] WRITE talk narrative summary: what worked, what didn't, surprises
+
+**Exit criteria**:
+- [ ] Analysis tables/figures generated
+- [ ] Talk narrative outline in `analysis/talk-narrative.md`
+
+---
+
+### Step 7.5: Stage 7 Consolidation
+
+**Entry criteria**:
+- [ ] Steps 7.1-7.4 complete
+
+**Work items**:
+- [ ] COMPACT learnings into `plans/learnings/LEARNINGS.md`
+- [ ] UPDATE `CLAUDE.md` with Stage 7 distilled learnings
+
+**Deliverables**: Complete cross-model comparison data, talk-ready narrative
 
 ---
 
@@ -1145,6 +1190,16 @@ Every step's exit criteria must include:
 - [ ] Update `ROADMAP.md` checkboxes
 - [ ] COMMIT
 ```
+
+---
+
+## Future Work (Backlog)
+
+### Agent Execution Visualization Library
+
+Extract agent timeline visualization into a reusable library. Current `make_figures.py` generates strip charts from `tool_uses.parquet` showing tool-call patterns per variant — useful but basic. Prior art to evaluate: LangSmith (LangChain), Phoenix/Arize, Langfuse, AgentOps — all use nested span/trace models rendered as Gantt-style timelines. IndyDevDan (YouTuber) built a Bun app for Claude Code agent activity visualization — investigate. Goal: a standalone library that reads agent-journal `PhaseCapture` data and produces interactive timelines.
+
+See: `plans/inbox/forge-structured-variant.md` (variant-e brief), `scripts/make_figures.py` (`make_agent_timeline`)
 
 ---
 

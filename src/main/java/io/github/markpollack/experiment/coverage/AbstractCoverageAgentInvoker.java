@@ -65,6 +65,9 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 					context.metadata());
 		}
 
+		// 1b. Generate project analysis report for SAE variants
+		ProjectAnalyzer.analyze(workspace);
+
 		// 2. Ensure JaCoCo plugin
 		ensureJaCoCoPlugin(workspace);
 

@@ -13,6 +13,40 @@ OUTPUT_DIR = PROJECT_ROOT / "docs" / "latex" / "tables"
 # then post-process \hline to booktabs rules.
 TABLE_FMT = "latex_raw"
 
+# Short labels for tables: agent:model notation
+VARIANT_TABLE_LABELS = {
+    "control": "CC:Sonnet (naive)",
+    "variant-a": "CC:Sonnet (hardened)",
+    "variant-b": "CC:Sonnet (+3 KB)",
+    "variant-c": "CC:Sonnet (+full KB)",
+    "variant-d": "CC:Sonnet (two-phase)",
+    "claude-haiku": "CC:Haiku",
+    "loopy-haiku": "Loopy:Haiku",
+    "loopy-qwen3-coder": "Loopy:Qwen3",
+    "claude-haiku-sae": "CC:Haiku (+SAE)",
+    "claude-sonnet-sae": "CC:Sonnet (+SAE)",
+    "loopy-haiku-sae": "Loopy:Haiku (+SAE)",
+    "loopy-sonnet": "Loopy:Sonnet",
+    "variant-e": "CC:Sonnet (forge)",
+}
+
+VARIANT_ORDER = [
+    "control", "variant-a", "variant-b", "variant-c", "variant-d",
+    "variant-e", "claude-sonnet-sae",
+    "claude-haiku", "claude-haiku-sae",
+    "loopy-sonnet", "loopy-haiku", "loopy-haiku-sae",
+    "loopy-qwen3-coder",
+]
+
+
+def variant_label(v: str) -> str:
+    return escape_latex(VARIANT_TABLE_LABELS.get(v, v))
+
+
+def ordered_variants(variants):
+    order = {v: i for i, v in enumerate(VARIANT_ORDER)}
+    return sorted(variants, key=lambda v: order.get(v, 999))
+
 
 def escape_latex(s: str) -> str:
     return s.replace("_", r"\_").replace("&", r"\&").replace("%", r"\%")
@@ -55,25 +89,26 @@ def load_data():
 def make_variant_comparison(runs, items):
     """Table 1: Variant comparison summary."""
     rows = []
-    for _, r in runs.sort_values("variant").iterrows():
-        v = r["variant"]
+    for v in ordered_variants(runs["variant"].unique()):
+        r = runs[runs["variant"] == v].iloc[0]
         vi = items[items["variant"] == v]
         cov = vi["coverage_final"].mean()
         rows.append([
-            escape_latex(v),
+            variant_label(v),
+            f"{int(r['item_count'])}",
             f"{r['pass_rate'] * 100:.0f}\\%",
             f"{cov:.1f}",
-            f"{vi['t3_adherence'].mean():.2f}",
-            f"{vi['golden_similarity'].mean():.2f}",
+            f"{vi['t3_adherence'].mean():.2f}" if vi['t3_adherence'].notna().any() else "---",
             f"{vi['eff_composite'].mean():.2f}",
             f"\\${r['total_cost_usd']:.2f}",
+            f"\\${r['total_cost_usd'] / r['item_count']:.2f}",
         ])
 
-    headers = ["Variant", "Pass\\%", "Cov\\%", "T3", "Golden", "Eff", "Cost"]
+    headers = ["Agent:Model", "N", "Pass\\%", "Cov\\%", "T3", "Eff", "Total", "Per Item"]
     body = tabulate(rows, headers=headers, tablefmt=TABLE_FMT)
 
     tex = wrap_table(body,
-        "Variant comparison --- Getting Started Guides (5 items, N=1 per cell)",
+        "Variant comparison (N=1 per cell, sorted by variant progression)",
         "tab:variant-comparison")
     (OUTPUT_DIR / "variant-comparison.tex").write_text(tex)
     print("  variant-comparison.tex")
@@ -81,7 +116,7 @@ def make_variant_comparison(runs, items):
 
 def make_per_item_breakdown(items):
     """Table 2: T3 score per item x variant."""
-    variants = sorted(items["variant"].unique())
+    variants = ordered_variants(items["variant"].unique())
     slugs = sorted(items["item_slug"].unique())
 
     rows = []
@@ -95,7 +130,7 @@ def make_per_item_breakdown(items):
                 row.append("---")
         rows.append(row)
 
-    headers = ["Item"] + [escape_latex(v) for v in variants]
+    headers = ["Item"] + [variant_label(v) for v in variants]
     body = tabulate(rows, headers=headers, tablefmt=TABLE_FMT)
 
     tex = wrap_table(body,
@@ -107,7 +142,7 @@ def make_per_item_breakdown(items):
 
 def make_judge_cascade(items):
     """Table 3: Judge pass/fail per variant."""
-    variants = sorted(items["variant"].unique())
+    variants = ordered_variants(items["variant"].unique())
 
     judge_cols = [
         ("t0_build", "Build Success"),
@@ -129,7 +164,7 @@ def make_judge_cascade(items):
                 row.append(f"{val:.2f}")
         rows.append(row)
 
-    headers = ["Judge"] + [escape_latex(v) for v in variants]
+    headers = ["Judge"] + [variant_label(v) for v in variants]
     body = tabulate(rows, headers=headers, tablefmt=TABLE_FMT)
 
     tex = wrap_table(body,
@@ -142,11 +177,11 @@ def make_judge_cascade(items):
 def make_cost_analysis(runs, items):
     """Table 4: Cost and token breakdown per variant."""
     rows = []
-    for _, r in runs.sort_values("variant").iterrows():
-        v = r["variant"]
+    for v in ordered_variants(runs["variant"].unique()):
+        r = runs[runs["variant"] == v].iloc[0]
         vi = items[items["variant"] == v]
         rows.append([
-            escape_latex(v),
+            variant_label(v),
             f"\\${r['total_cost_usd']:.2f}",
             f"\\${r['total_cost_usd'] / r['item_count']:.2f}",
             f"{vi['input_tokens'].sum():,}",
@@ -155,7 +190,7 @@ def make_cost_analysis(runs, items):
             f"{r['total_duration_ms'] / 1000:.0f}s",
         ])
 
-    headers = ["Variant", "Total", "Per Item", "In Tok", "Out Tok", "Think Tok", "Duration"]
+    headers = ["Agent:Model", "Total", "Per Item", "In Tok", "Out Tok", "Think Tok", "Duration"]
     body = tabulate(rows, headers=headers, tablefmt=TABLE_FMT)
 
     tex = wrap_table(body,
@@ -167,13 +202,13 @@ def make_cost_analysis(runs, items):
 
 def make_efficiency_breakdown(items):
     """Table 5: Efficiency sub-metrics per variant."""
-    variants = sorted(items["variant"].unique())
+    variants = ordered_variants(items["variant"].unique())
 
     rows = []
     for v in variants:
         vi = items[items["variant"] == v]
         rows.append([
-            escape_latex(v),
+            variant_label(v),
             f"{vi['eff_build_errors'].mean():.2f}",
             f"{vi['eff_cost'].mean():.2f}",
             f"{vi['eff_recovery_cycles'].mean():.2f}",
@@ -183,7 +218,7 @@ def make_efficiency_breakdown(items):
             f"{vi['duration_ms'].mean() / 1000:.0f}s",
         ])
 
-    headers = ["Variant", "Build Err", "Cost Eff", "Recovery", "Composite",
+    headers = ["Agent:Model", "Build Err", "Cost Eff", "Recovery", "Composite",
                "Avg Out Tok", "Avg Think Tok", "Avg Duration"]
     body = tabulate(rows, headers=headers, tablefmt=TABLE_FMT)
 

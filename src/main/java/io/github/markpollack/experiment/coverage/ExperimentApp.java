@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ai.tuvium.experiment.diagnostic.EfficiencyConfig;
 import ai.tuvium.experiment.dataset.DatasetManager;
@@ -26,6 +27,7 @@ import ai.tuvium.experiment.store.ActiveSession;
 import ai.tuvium.experiment.store.FileSystemResultStore;
 import ai.tuvium.experiment.store.FileSystemSessionStore;
 import ai.tuvium.experiment.store.ResultStore;
+import ai.tuvium.experiment.store.RunSessionStatus;
 import ai.tuvium.experiment.store.SessionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,11 +92,13 @@ public class ExperimentApp {
 		Jury jury = juryFactory.build(variant);
 		AbstractCoverageAgentInvoker invoker = createInvoker(variant);
 
+		String model = variant.model() != null ? variant.model() : variantConfig.defaultModel();
+
 		ExperimentConfig config = ExperimentConfig.builder()
 			.experimentName(variantConfig.experimentName())
 			.datasetDir(projectRoot.resolve("dataset"))
 			.promptTemplate(loadPrompt(variant))
-			.model(variantConfig.defaultModel())
+			.model(model)
 			.perItemTimeout(Duration.ofMinutes(variantConfig.timeoutMinutes()))
 			.knowledgeBaseDir(variant.knowledgeDir() != null ? projectRoot.resolve(variant.knowledgeDir()) : null)
 			.preserveWorkspaces(true)
@@ -136,35 +140,53 @@ public class ExperimentApp {
 
 		sessionStore.createSession(sessionName, variantConfig.experimentName(), Map.of());
 
-		ExperimentResult previousResult = null;
+		try {
+			ExperimentResult previousResult = null;
 
-		for (VariantSpec variant : variants) {
-			ExperimentResult result = runVariant(variant, sessionName);
+			for (VariantSpec variant : variants) {
+				ExperimentResult result = runVariant(variant, sessionName);
 
-			if (previousResult != null) {
-				ComparisonResult comparison = comparisonEngine.compare(result, previousResult);
-				reporter.appendComparison(variant.name(), comparison);
+				if (previousResult != null) {
+					ComparisonResult comparison = comparisonEngine.compare(result, previousResult);
+					reporter.appendComparison(variant.name(), comparison);
+				}
+				else {
+					reporter.appendBaseline(variant.name(), comparisonEngine.summarize(result));
+				}
+
+				previousResult = result;
 			}
-			else {
-				reporter.appendBaseline(variant.name(), comparisonEngine.summarize(result));
-			}
 
-			previousResult = result;
+			reporter.generateGrowthStory();
+			logger.info("Growth story written to analysis/growth-story.md");
+			sessionStore.finalizeSession(sessionName, variantConfig.experimentName(),
+					RunSessionStatus.COMPLETED);
 		}
-
-		reporter.generateGrowthStory();
-		logger.info("Growth story written to analysis/growth-story.md");
+		catch (Exception ex) {
+			sessionStore.finalizeSession(sessionName, variantConfig.experimentName(),
+					RunSessionStatus.FAILED);
+			throw ex;
+		}
 	}
 
 	/**
 	 * Create a per-variant invoker with optional knowledge injection.
-	 * Dispatches to two-phase invoker when actPromptFile is set.
+	 * Dispatches based on agent type and phase configuration.
 	 */
 	AbstractCoverageAgentInvoker createInvoker(VariantSpec variant) {
 		Path knowledgeSourceDir = variant.knowledgeDir() != null
 				? projectRoot.resolve(variant.knowledgeDir()) : null;
 		List<String> knowledgeFiles = variant.knowledgeFiles();
 		boolean hasKnowledge = knowledgeSourceDir != null && !knowledgeFiles.isEmpty();
+
+		if (variant.isLoopy()) {
+			String model = variant.model() != null ? variant.model() : variantConfig.defaultModel();
+			return new LoopyCoverageAgentInvoker(
+					hasKnowledge ? knowledgeSourceDir : null,
+					hasKnowledge ? knowledgeFiles : null,
+					model, variant.baseUrl(), variant.apiKey(),
+					Set.of("Task"));
+		}
 
 		if (variant.isTwoPhase()) {
 			String actPrompt = loadPromptFile(variant.actPromptFile());
@@ -224,7 +246,12 @@ public class ExperimentApp {
 			List<String> knowledgeFiles = rv.get("knowledgeFiles") != null
 					? (List<String>) rv.get("knowledgeFiles")
 					: List.of();
-			variants.add(new VariantSpec(name, promptFile, actPromptFile, knowledgeDir, knowledgeFiles));
+			String agent = (String) rv.get("agent");
+			String model = (String) rv.get("model");
+			String baseUrl = (String) rv.get("baseUrl");
+			String apiKey = (String) rv.get("apiKey");
+			variants.add(new VariantSpec(name, promptFile, actPromptFile, knowledgeDir, knowledgeFiles,
+					null, agent, model, baseUrl, apiKey));
 		}
 
 		return new ExperimentVariantConfig(
@@ -260,6 +287,9 @@ public class ExperimentApp {
 	 * </pre>
 	 */
 	public static void main(String[] args) {
+		// Force IPv4 for Tailscale compatibility (Java may attempt IPv6 and hang)
+		System.setProperty("java.net.preferIPv4Stack", "true");
+
 		Path projectRoot = Path.of(System.getProperty("user.dir"));
 
 		// Parse CLI arguments
@@ -341,7 +371,16 @@ public class ExperimentApp {
 			// Single-variant run also uses a session for consistent layout
 			String sessionName = SESSION_NAME_FORMAT.format(Instant.now());
 			sessionStore.createSession(sessionName, config.experimentName(), Map.of());
-			app.runVariant(variant, sessionName);
+			try {
+				app.runVariant(variant, sessionName);
+				sessionStore.finalizeSession(sessionName, config.experimentName(),
+						RunSessionStatus.COMPLETED);
+			}
+			catch (Exception ex) {
+				sessionStore.finalizeSession(sessionName, config.experimentName(),
+						RunSessionStatus.FAILED);
+				throw ex;
+			}
 		}
 	}
 

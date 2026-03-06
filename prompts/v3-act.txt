@@ -15,14 +15,25 @@ Write a comprehensive JUnit test suite targeting at least 80% line coverage. Fol
 - Prefer slice tests over full @SpringBootTest where possible
 
 ## Process
-1. Read TEST_PLAN.md to recall your analysis
-2. Configure JaCoCo (see below) if not already present
-3. Write tests following the plan, targeting the most impactful production code first
-4. After every batch of test changes, verify compilation and tests:
-   - Run `./mvnw compile` — do NOT proceed if compilation fails. Fix it first.
-   - Run `./mvnw test` — all tests must pass (zero failures)
-5. Run `./mvnw clean test jacoco:report` and read `target/site/jacoco/index.html` to check coverage.
-   If still below 80%, identify gaps and write more tests. Iterate until target is met.
+
+Follow the execution order from TEST_PLAN.md. Work through it **layer by layer**:
+
+1. **Read TEST_PLAN.md** to recall your analysis and execution order.
+
+2. **Configure JaCoCo** (see below) if not already present.
+
+3. **Implement each layer in order** (plain unit tests → slice tests → integration tests):
+   - Write the test classes for that layer as specified in the plan
+   - After completing each layer, run:
+     - `./mvnw compile` — do NOT proceed if compilation fails. Fix it first.
+     - `./mvnw test` — all tests must pass (zero failures)
+   - If a test class in the plan turns out to be problematic (e.g., a risk flagged in the plan materializes), fix or simplify it before moving to the next layer.
+
+4. **Check coverage** after all layers are complete:
+   - Run `./mvnw clean test jacoco:report`
+   - Read `target/site/jacoco/index.html` to check coverage
+   - If below 80%, identify the biggest gaps and write targeted tests
+   - Iterate until the target is met
 
 ## JaCoCo Setup
 If the project does not have the JaCoCo Maven plugin configured, add it to pom.xml:
